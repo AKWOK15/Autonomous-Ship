@@ -18,4 +18,4 @@ able to navigate race course, think alpine/downhill skiing
 # Next Steps
 1. Use SimScale and Autodesk Fusion built in tools to ensure boat is balanced with all components to avoid having to constantly 3D print boats
 2. Use SG90 Servo Motor to control rudder 
-3. Use Rasperry Pi with ultrasonic sensor and camera for sensor fusion and computer vision
+3. Use Raspberry Pi with ultrasonic sensor and camera for sensor fusion and computer vision
