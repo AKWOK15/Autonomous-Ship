@@ -1,0 +1,54 @@
+# config/color_detection_params.yaml
+# HSV color ranges for different colored objects
+# You can create multiple parameter files for different colors
+
+# Blue objects (like blue buoys/markers)
+blue_detection:
+  hue_low: 100
+  hue_high: 130
+  sat_low: 50
+  sat_high: 255
+  val_low: 50
+  val_high: 255
+  turn_speed: 0.5
+  min_contour_area: 500
+
+# Red objects
+red_detection:
+  hue_low: 0
+  hue_high: 10
+  sat_low: 50
+  sat_high: 255
+  val_low: 50
+  val_high: 255
+  turn_speed: 0.5
+  min_contour_area: 500
+
+# Green objects
+green_detection:
+  hue_low: 40
+  hue_high: 80
+  sat_low: 50
+  sat_high: 255
+  val_low: 50
+  val_high: 255
+  turn_speed: 0.5
+  min_contour_area: 500
+
+# Orange objects
+orange_detection:
+  hue_low: 10
+  hue_high: 25
+  sat_low: 50
+  sat_high: 255
+  val_low: 50
+  val_high: 255
+  turn_speed: 0.5
+  min_contour_area: 500
+
+# Notes:
+# - HSV ranges: H(0-179), S(0-255), V(0-255) in OpenCV
+# - For red, you might need two ranges: (0-10) and (170-179)
+# - Adjust sat_low and val_low based on lighting conditions
+# - min_contour_area filters out small noise
+# - turn_speed controls how aggressively the ship turns
