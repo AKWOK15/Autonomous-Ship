@@ -7,6 +7,7 @@ class UltrasonicSensorNode : public rclcpp::Node {
 public:
     UltrasonicSensorNode() : Node("ultrasonic_sensor_node") {
         // Declare parameters with default values
+        // Assigning value to trigger pin of this class
         this->declare_parameter<int>("trigger_pin", 18);
         this->declare_parameter<int>("echo_pin", 24);
         this->declare_parameter<double>("publish_rate", 10.0);  // Hz
@@ -53,7 +54,7 @@ public:
 
 private:
     void timer_callback() {
-        // Get distance measurement
+        // Periodically runs to publish sensor data
         double distance_cm = ultrasonic_sensor_.distance();
         
         if (distance_cm < 0) {
@@ -99,10 +100,15 @@ private:
 };
 
 int main(int argc, char** argv) {
+    //initializes communication
     rclcpp::init(argc, argv);
     
     try {
+        //Dynamically creates object then returns a sharped pointer, object is of type UltrasonicSensorNode
+        //auto means type of variable will be deduced from its initializer
         auto node = std::make_shared<UltrasonicSensorNode>();
+        //Allows node to keep running and check for events on subscribed topics and service calls
+        //Handles subscription callbacks and service requests, but this node only publishes
         rclcpp::spin(node);
     } catch (const std::exception& e) {
         RCLCPP_ERROR(rclcpp::get_logger("main"), "Exception: %s", e.what());
