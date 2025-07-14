@@ -26,6 +26,18 @@ def generate_launch_description():
         description='Camera image height'
     )
     
+    # Ultrasonic Sensor Node
+    ultrasonic_sensor_node = Node(
+        package='ultrasonic_sensor',
+        executable='ultrasonic_node',
+        name='ultrasonic_node',
+        parameters=[
+            {
+                'trigger_pin': 18,
+                'echo_pin': 24
+            }
+        ]
+    )
     # V4L2 Camera Node
     v4l2_camera_node = Node(
         package='v4l2_camera',
@@ -73,6 +85,7 @@ def generate_launch_description():
         camera_device_arg,
         camera_width_arg,
         camera_height_arg,
-        v4l2_camera_node,
-        color_detection_node
+        ultrasonic_sensor_node,
+        # v4l2_camera_node,
+        # color_detection_node
     ])
