@@ -35,6 +35,7 @@ public:
                     trigger_pin, echo_pin);
         
         // Create publishers
+        // ~/range that i need to refer to this publisher as ultrasonic_sensor/range from a different package
         range_publisher_ = this->create_publisher<sensor_msgs::msg::Range>("~/range", 10);
         distance_publisher_ = this->create_publisher<std_msgs::msg::Float64>("~/distance", 10);
         
