@@ -46,7 +46,7 @@ def generate_launch_description():
     v4l2_camera_node = Node(
         package='v4l2_camera',
         executable='v4l2_camera_node',
-        arguments=['--ros-args', '--log-level', 'ERROR'],
+        # arguments=['--ros-args', '--log-level', 'ERROR'],
         name='v4l2_camera',
         parameters=[
             {
@@ -92,7 +92,7 @@ def generate_launch_description():
     sensor_fusion = Node(
         package='sensor_fusion',
         executable='fusion_node',
-        arguments=['--ros-args', '--log-level', 'ERROR']
+        # arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     return LaunchDescription([

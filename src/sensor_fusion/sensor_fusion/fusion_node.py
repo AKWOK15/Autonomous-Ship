@@ -1,6 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Range, Image
+from geometry_msgs.msg import Twist
 import message_filters 
 
 class SensorFusionNode(Node):
@@ -9,11 +10,13 @@ class SensorFusionNode(Node):
        
         # Subscribe to both sensors
         self.ultrasonic_sub = message_filters.Subscriber(self, Range, '/ultrasonic_node/range')
-        self.camera_sub = message_filters.Subscriber(self, Image, '/camera/image_raw')
+        self.color_detection_sub = message_filters.Subscriber(self, Twist, '/ship/cmd_vel')
+        # self.camera_sub = message_filters.Subscriber(self, Image, '/camera/image_raw')
        
         # Synchronize messages by timestamp
         self.ts = message_filters.ApproximateTimeSynchronizer(
-            [self.ultrasonic_sub, self.camera_sub],
+            [self.color_detection_sub, self.ultrasonic_sub],
+            allow_headerless=True,
             queue_size=10,
             slop=3000
         )
@@ -23,10 +26,14 @@ class SensorFusionNode(Node):
         return f"Sensor fusion: {self.ts}"
    
     # def get_ultrasonic
-    def fusion_callback(self, ultrasonic_msg, camera_msg):
+    def fusion_callback(self, color_detection_msg, ultrasonic_msg):
         # Process both sensor data together
         distance = ultrasonic_msg.range
         self.get_logger().info(f'Distance: {distance:.2f}m')
+        camera_linear = color_detection_msg.linear.x
+        self.get_logger().info(f'Camera linear: {camera_linear}')
+        camera_angular = color_detection_msg.angular.x
+        self.get_logger().info(f'Camera linear: {camera_angular}')
         # Process camera image...
         # Fuse the data and publish result
 
