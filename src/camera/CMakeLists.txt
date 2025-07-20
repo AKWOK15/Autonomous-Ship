@@ -16,7 +16,6 @@ find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED)
 
 # Add executable
-add_executable(color_detection_node src/color_detection_node.cpp)
 add_executable(colors_detection_node src/colors_detection_node.cpp)
 
 # Specify dependencies
@@ -30,15 +29,6 @@ ament_target_dependencies(colors_detection_node
   OpenCV
 )
 
-ament_target_dependencies(color_detection_node
-  rclcpp
-  sensor_msgs
-  geometry_msgs
-  std_msgs  # Added this line
-  cv_bridge
-  image_transport
-  OpenCV
-)
 
 # Add camera_node executable
 add_executable(camera_node src/camera_node.cpp)
@@ -54,7 +44,6 @@ ament_target_dependencies(camera_node
 # Install targets
 install(TARGETS
   camera_node
-  color_detection_node
   colors_detection_node
   DESTINATION lib/${PROJECT_NAME}
 )

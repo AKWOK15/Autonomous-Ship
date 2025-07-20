@@ -44,8 +44,8 @@ public:
         image_publisher_ = it_->advertise("/camera/processed_image", 1);
         
         // Publisher for navigation commands
-        twist_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
-        color_publisher_ = this->create_publisher<std_msgs::msg::String>("/detected_color", 10);
+        twist_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("/camera/cmd_vel", 10);
+        color_publisher_ = this->create_publisher<std_msgs::msg::String>("/camera/detected_color", 10);
         RCLCPP_INFO(this->get_logger(), "Color Detection Node Initialized");
     }
 
@@ -53,7 +53,6 @@ private:
     void declareColorParameters()
     {
         // Method 1: Structured parameter naming (recommended)
-        // Blue color
         this->declare_parameter<int>("colors.blue.hue_low", 100);
         this->declare_parameter<int>("colors.blue.hue_high", 130);
         this->declare_parameter<int>("colors.blue.sat_low", 50);
@@ -69,7 +68,6 @@ private:
         this->declare_parameter<int>("colors.red.val_low", 100);
         this->declare_parameter<int>("colors.red.val_high", 255);
         
-        // Green color
         this->declare_parameter<int>("colors.green.hue_low", 40);
         this->declare_parameter<int>("colors.green.hue_high", 80);
         this->declare_parameter<int>("colors.green.sat_low", 50);
@@ -77,19 +75,18 @@ private:
         this->declare_parameter<int>("colors.green.val_low", 50);
         this->declare_parameter<int>("colors.green.val_high", 255);
         
-        // Yellow color
-        this->declare_parameter<int>("colors.yellow.hue_low", 20);
-        this->declare_parameter<int>("colors.yellow.hue_high", 35);
-        this->declare_parameter<int>("colors.yellow.sat_low", 100);
-        this->declare_parameter<int>("colors.yellow.sat_high", 255);
-        this->declare_parameter<int>("colors.yellow.val_low", 100);
-        this->declare_parameter<int>("colors.yellow.val_high", 255);
+        this->declare_parameter<int>("colors.black.hue_low", 0);
+        this->declare_parameter<int>("colors.black.hue_high", 0);
+        this->declare_parameter<int>("colors.black.sat_low", 0);
+        this->declare_parameter<int>("colors.black.sat_high", 0);
+        this->declare_parameter<int>("colors.black.val_low", 0);
+        this->declare_parameter<int>("colors.black.val_high", 0);
     }
 
     void getColorParameters()
     {
         // Method 1: Load structured parameters
-        std::vector<std::string> color_names = {"blue", "red", "green", "yellow"};
+        std::vector<std::string> color_names = {"blue", "red", "green", "black"};
         
         for (const auto& color : color_names)
         {

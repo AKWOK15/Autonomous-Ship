@@ -66,33 +66,10 @@ def generate_launch_description():
         ],
     )
     
-    # Color Detection Node
-    # color_detection_node = Node(
-    #     package='camera',
-    #     executable='color_detection_node',
-    #     # arguments=['--ros-args', '--log-level', 'ERROR'],
-    #     name='color_detection_node',
-    #     parameters=[
-    #         {
-    #             'hue_low': 100,      # Blue color detection (adjust for your target color)
-    #             'hue_high': 130,
-    #             'sat_low': 50,
-    #             'sat_high': 255,
-    #             'val_low': 50,
-    #             'val_high': 255,
-    #             'turn_speed': 0.5,
-    #             'min_contour_area': 500
-    #         }
-    #     ],
-    #     remappings=[
-    #         ('/cmd_vel', '/camera/cmd_vel')  # Remap to your ship's command topic
-    #     ],
-    # )
-
     colors_detection_node = Node(
         package='camera',
         executable='colors_detection_node',
-        # arguments=['--ros-args', '--log-level', 'ERROR'],
+        arguments=['--ros-args', '--log-level', 'ERROR'],
         name='colors_detection_node',
         parameters=[
             {
@@ -100,15 +77,12 @@ def generate_launch_description():
                 'min_contour_area': 500
             }
         ],
-        remappings=[
-            ('/cmd_vel', '/camera/cmd_vel')  # Remap to your ship's command topic
-        ],
     )
 
     sensor_fusion = Node(
         package='sensor_fusion',
         executable='fusion_node',
-        arguments=['--ros-args', '--log-level', 'ERROR']
+        # arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     return LaunchDescription([
