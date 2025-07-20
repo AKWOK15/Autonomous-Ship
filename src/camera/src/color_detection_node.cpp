@@ -53,7 +53,7 @@ private:
             cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             cv::Mat image = cv_ptr->image;
             
-            // Process the image for color detection
+            // Process the image for color detectionf
             processImage(image);
             
             // Publish processed image for debugging
@@ -94,9 +94,11 @@ private:
         
         // Find contours
         std::vector<std::vector<cv::Point>> contours;
+        // Chain_APPROX_SIMPLEis countour approximation method
+        // RETR External is contour retrival mode
         cv::findContours(mask, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         
-        // Find the largest contour
+        // Find the largest contour (border of an object)
         double max_area = 0;
         int largest_contour_index = -1;
         

@@ -9,8 +9,8 @@ class SensorFusionNode(Node):
         super().__init__('sensor_fusion_node')
        
         # Subscribe to both sensors
-        self.ultrasonic_sub = message_filters.Subscriber(self, Range, '/ultrasonic_node/range')
-        self.color_detection_sub = message_filters.Subscriber(self, Twist, '/ship/cmd_vel')
+        self.ultrasonic_sub = message_filters.Subscriber(self, Range, '/ultrasonic/range')
+        self.color_detection_sub = message_filters.Subscriber(self, Twist, '/camera/cmd_vel')
         # self.camera_sub = message_filters.Subscriber(self, Image, '/camera/image_raw')
        
         # Synchronize messages by timestamp

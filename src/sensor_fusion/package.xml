@@ -6,7 +6,16 @@
   <description>TODO: Package description</description>
   <maintainer email="aidankwok@gmail.com">aidankwok</maintainer>
   <license>TODO: License declaration</license>
+  <depend>rclcpp</depend>
+  <depend>ament_cmake</depend>
+  <depend>sensor</depend>
+  <depend>sensor_msgs</depend>
+  <depend>image_transport</depend>
+  <depend>std_msgs</depend>
+  <depend>cv</depend>
+  <depend>cv_bridge</depend>
 
+  <depend>opencv2</depend>
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
