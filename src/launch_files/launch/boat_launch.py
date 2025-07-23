@@ -32,7 +32,7 @@ def generate_launch_description():
         package='ultrasonic_sensor',
         #Found in CMakeLists.txt
         executable='ultrasonic_node',
-        arguments=['--ros-args', '--log-level', 'ERROR'],
+        # arguments=['--ros-args', '--log-level', 'ERROR'],
         name='ultrasonic_node',
         parameters=[
             {
