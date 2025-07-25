@@ -166,7 +166,7 @@ private:
             // Publish detected color
             std_msgs::msg::String color_msg;
             color_msg.data = detected_color;
-            RCLCPP_INFO(this->get_logger(), "Color is: %s", color_msg.data.c_str());
+            // RCLCPP_INFO(this->get_logger(), "Color is: %s", color_msg.data.c_str());
             color_publisher_->publish(color_msg);
         }
         else {
@@ -259,7 +259,7 @@ private:
                 // Object is centered - move forward
                 cmd_vel.linear.x = 0.3;
                 cmd_vel.angular.z = 0.0;
-                // RCLCPP_INFO(this->get_logger(), "Moving forward - object centered");
+                RCLCPP_INFO(this->get_logger(), "Moving forward - object centered");
             }
             else
             {
@@ -267,14 +267,14 @@ private:
                 cmd_vel.linear.x = 0.1; // Slow forward movement while turning
                 cmd_vel.angular.z = -error * turn_speed / center_x; // Proportional turn
                 
-                // if (error > 0)
-                // {
-                //     RCLCPP_INFO(this->get_logger(), "Turning right - object at x=%d", object_x);
-                // }
-                // else
-                // {
-                //     RCLCPP_INFO(this->get_logger(), "Turning left - object at x=%d", object_x);
-                // }
+                if (error > 0)
+                {
+                    RCLCPP_INFO(this->get_logger(), "Turning right - object at x=%d", object_x);
+                }
+                else
+                {
+                    RCLCPP_INFO(this->get_logger(), "Turning left - object at x=%d", object_x);
+                }
             }
         }
         
