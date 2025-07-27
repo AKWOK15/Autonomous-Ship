@@ -68,9 +68,9 @@ private:
         this->declare_parameter<int>("colors.red.val_low", 50);   // More forgiving
         this->declare_parameter<int>("colors.red.val_high", 255);
             
-        this->declare_parameter<int>("colors.green.hue_low", 60);
+        this->declare_parameter<int>("colors.green.hue_low", 15);
         this->declare_parameter<int>("colors.green.hue_high", 150);
-        this->declare_parameter<int>("colors.green.sat_low", 50);
+        this->declare_parameter<int>("colors.green.sat_low", 80);
         this->declare_parameter<int>("colors.green.sat_high", 255);
         this->declare_parameter<int>("colors.green.val_low", 50);
         this->declare_parameter<int>("colors.green.val_high", 255);

@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-# scripts/color_calibration.py
-# Optimized version with reduced performance impact
-
 import cv2
 import numpy as np
 import rclpy
