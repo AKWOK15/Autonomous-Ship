@@ -87,8 +87,8 @@ class ColorCalibrationNode(Node):
                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             
             # Show images
-            cv2.imshow('Original', cv_image)
-            cv2.imshow('Mask', mask)
+            # cv2.imshow('Original', cv_image)
+            # cv2.imshow('Mask', mask)
             cv2.imshow('Result', result)
             
             # Check for quit

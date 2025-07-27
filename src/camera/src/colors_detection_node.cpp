@@ -53,40 +53,41 @@ private:
     void declareColorParameters()
     {
         // Method 1: Structured parameter naming (recommended)
-        this->declare_parameter<int>("colors.blue.hue_low", 100);
-        this->declare_parameter<int>("colors.blue.hue_high", 130);
-        this->declare_parameter<int>("colors.blue.sat_low", 50);
-        this->declare_parameter<int>("colors.blue.sat_high", 255);
-        this->declare_parameter<int>("colors.blue.val_low", 50);
-        this->declare_parameter<int>("colors.blue.val_high", 255);
+        // this->declare_parameter<int>("colors.blue.hue_low", 100);
+        // this->declare_parameter<int>("colors.blue.hue_high", 130);
+        // this->declare_parameter<int>("colors.blue.sat_low", 50);
+        // this->declare_parameter<int>("colors.blue.sat_high", 255);
+        // this->declare_parameter<int>("colors.blue.val_low", 50);
+        // this->declare_parameter<int>("colors.blue.val_high", 255);
         
         // Red color (note: red wraps around in HSV)
         this->declare_parameter<int>("colors.red.hue_low", 0);
-        this->declare_parameter<int>("colors.red.hue_high", 10);
-        this->declare_parameter<int>("colors.red.sat_low", 100);
+        this->declare_parameter<int>("colors.red.hue_high", 15);  // Slightly wider
+        this->declare_parameter<int>("colors.red.sat_low", 50);   // More forgiving
         this->declare_parameter<int>("colors.red.sat_high", 255);
-        this->declare_parameter<int>("colors.red.val_low", 100);
+        this->declare_parameter<int>("colors.red.val_low", 50);   // More forgiving
         this->declare_parameter<int>("colors.red.val_high", 255);
-        
-        this->declare_parameter<int>("colors.green.hue_low", 40);
-        this->declare_parameter<int>("colors.green.hue_high", 80);
+            
+        this->declare_parameter<int>("colors.green.hue_low", 60);
+        this->declare_parameter<int>("colors.green.hue_high", 150);
         this->declare_parameter<int>("colors.green.sat_low", 50);
         this->declare_parameter<int>("colors.green.sat_high", 255);
         this->declare_parameter<int>("colors.green.val_low", 50);
         this->declare_parameter<int>("colors.green.val_high", 255);
         
-        this->declare_parameter<int>("colors.black.hue_low", 0);
-        this->declare_parameter<int>("colors.black.hue_high", 0);
-        this->declare_parameter<int>("colors.black.sat_low", 0);
-        this->declare_parameter<int>("colors.black.sat_high", 0);
-        this->declare_parameter<int>("colors.black.val_low", 0);
-        this->declare_parameter<int>("colors.black.val_high", 0);
+        // this->declare_parameter<int>("colors.black.hue_low", 0);
+        // this->declare_parameter<int>("colors.black.hue_high", 0);
+        // this->declare_parameter<int>("colors.black.sat_low", 0);
+        // this->declare_parameter<int>("colors.black.sat_high", 0);
+        // this->declare_parameter<int>("colors.black.val_low", 0);
+        // this->declare_parameter<int>("colors.black.val_high", 0);
     }
 
     void getColorParameters()
     {
         // Method 1: Load structured parameters
-        std::vector<std::string> color_names = {"blue", "red", "green", "black"};
+        std::vector<std::string> color_names = {"red", "green"};
+        // std::vector<std::string> color_names = {"blue", "red", "green", "black"};
         
         for (const auto& color : color_names)
         {
@@ -154,7 +155,8 @@ private:
                     detected_color = color_name;
                 }
         }
-        if (best_centroid.x >= 0) {
+        if (max_area > 0) {
+        // if (best_centroid.x >= 0) {
             cv::circle(image, best_centroid, 5, cv::Scalar(0, 0, 255), -1);
             publishNavigationCommand(best_centroid.x, image.cols, turn_speed);
             
@@ -166,7 +168,7 @@ private:
             // Publish detected color
             std_msgs::msg::String color_msg;
             color_msg.data = detected_color;
-            // RCLCPP_INFO(this->get_logger(), "Color is: %s", color_msg.data.c_str());
+            RCLCPP_INFO(this->get_logger(), "Color is: %s. Area is: %f.", color_msg.data.c_str(),max_area);
             color_publisher_->publish(color_msg);
         }
         else {
@@ -182,15 +184,6 @@ private:
         cv::Mat mask;
         cv::inRange(hsv, cv::Scalar(color_range.hue_low, color_range.sat_low, color_range.val_low), 
                     cv::Scalar(color_range.hue_high, color_range.sat_high, color_range.val_high), mask);
-        //red color wrap around
-        if (color_range.name == "red" && color_range.hue_low > color_range.hue_high) {
-            cv::Mat mask1, mask2;
-            cv::inRange(hsv, cv::Scalar(0, color_range.sat_low, color_range.val_low), 
-                        cv::Scalar(color_range.hue_high, color_range.sat_high, color_range.val_high), mask1);
-            cv::inRange(hsv, cv::Scalar(color_range.hue_low, color_range.sat_low, color_range.val_low), 
-                        cv::Scalar(179, color_range.sat_high, color_range.val_high), mask2);
-            cv::bitwise_or(mask1, mask2, mask);
-        }
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
         cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
         cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
@@ -249,6 +242,8 @@ private:
         {
             // Object detected - calculate turn direction
             int center_x = image_width / 2;
+            // error is positve if on object_x is on right side of camera window 
+            //negative if on left side of camera_window
             int error = object_x - center_x;
             
             // Proportional control for turning

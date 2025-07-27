@@ -41,8 +41,8 @@ class SensorFusionNode(Node):
         # Determine servo angle based on color
         if color == 'black':
             servo_motor_angle = '0'
-        elif color == "green":
-            servo_motor_angle = '180'
+        # elif color == "green":
+        #     servo_motor_angle = '180'
         else:
             servo_motor_angle = '90'
             

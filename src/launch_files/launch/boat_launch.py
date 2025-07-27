@@ -55,7 +55,7 @@ def generate_launch_description():
                 'image_height': LaunchConfiguration('camera_height'),
                 'pixel_format': 'YUYV',
                 'camera_frame_id': 'camera_link',
-                'fps': 30.0
+                'fps': 20.0
             }
         ],
         #Remapping is used so that you can change topics, action without modifying source code
