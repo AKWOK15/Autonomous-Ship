@@ -32,7 +32,7 @@ def generate_launch_description():
         package='ultrasonic_sensor',
         #Found in CMakeLists.txt
         executable='ultrasonic_node',
-        # arguments=['--ros-args', '--log-level', 'ERROR'],
+        arguments=['--ros-args', '--log-level', 'ERROR'],
         name='ultrasonic_node',
         parameters=[
             {
@@ -69,7 +69,7 @@ def generate_launch_description():
     colors_detection_node = Node(
         package='camera',
         executable='colors_detection_node',
-        # arguments=['--ros-args', '--log-level', 'ERROR'],
+        arguments=['--ros-args', '--log-level', 'ERROR'],
         name='colors_detection_node',
         parameters=[
             {
@@ -82,7 +82,7 @@ def generate_launch_description():
     sensor_fusion = Node(
         package='sensor_fusion',
         executable='fusion_node',
-        arguments=['--ros-args', '--log-level', 'ERROR']
+        #arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     return LaunchDescription([

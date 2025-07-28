@@ -5,19 +5,21 @@ from rclpy.node import Node
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import time
+import threading
 
 class ColorCalibrationNode(Node):
     def __init__(self):
-        #Node is the parent class, passing in color_calibration_node names the node, used for identification in ROS system, logging, topic namespacing 
         super().__init__('color_calibration_node')
         self.bridge = CvBridge()
+        
         # Throttle image processing to reduce load
         self.last_process_time = 0
-        self.process_interval = 0.2  # Process every 200ms (5 FPS max)
+        self.process_interval = 0.1  # Process every 100ms
         
-        # Track if trackbar values changed to avoid unnecessary processing
-        self.last_trackbar_values = None
+        # Track if we need to update the display
+        self.needs_update = False
         self.current_image = None
+        self.processing_lock = threading.Lock()
         
         self.subscription = self.create_subscription(
             Image,
@@ -27,14 +29,15 @@ class ColorCalibrationNode(Node):
         
         # Create trackbars for HSV adjustment
         cv2.namedWindow('Color Calibration', cv2.WINDOW_NORMAL)
-        cv2.resizeWindow('Color Calibration', 640, 480)  # Smaller window
+        cv2.resizeWindow('Color Calibration', 640, 480)
         
-        cv2.createTrackbar('H Low', 'Color Calibration', 0, 179, self.trackbar_callback)
-        cv2.createTrackbar('H High', 'Color Calibration', 179, 179, self.trackbar_callback)
-        cv2.createTrackbar('S Low', 'Color Calibration', 0, 255, self.trackbar_callback)
-        cv2.createTrackbar('S High', 'Color Calibration', 255, 255, self.trackbar_callback)
-        cv2.createTrackbar('V Low', 'Color Calibration', 0, 255, self.trackbar_callback)
-        cv2.createTrackbar('V High', 'Color Calibration', 255, 255, self.trackbar_callback)
+        # Use a simple callback that just sets a flag
+        cv2.createTrackbar('H Low', 'Color Calibration', 0, 179, self.on_trackbar_change)
+        cv2.createTrackbar('H High', 'Color Calibration', 179, 179, self.on_trackbar_change)
+        cv2.createTrackbar('S Low', 'Color Calibration', 0, 255, self.on_trackbar_change)
+        cv2.createTrackbar('S High', 'Color Calibration', 255, 255, self.on_trackbar_change)
+        cv2.createTrackbar('V Low', 'Color Calibration', 0, 255, self.on_trackbar_change)
+        cv2.createTrackbar('V High', 'Color Calibration', 255, 255, self.on_trackbar_change)
         
         # Set initial values for red detection
         cv2.setTrackbarPos('H Low', 'Color Calibration', 0)
@@ -44,16 +47,23 @@ class ColorCalibrationNode(Node):
         cv2.setTrackbarPos('V Low', 'Color Calibration', 50)
         cv2.setTrackbarPos('V High', 'Color Calibration', 255)
         
+        # Start a timer for periodic processing
+        self.create_timer(0.05, self.timer_callback)  # 20 FPS max
+        
         self.get_logger().info('Color calibration tool started (optimized)')
         self.get_logger().info('Press "q" to quit and print final values')
         self.get_logger().info('Press "s" to save current values')
-        self.get_logger().info('Processing throttled to reduce system load')
     
-    def trackbar_callback(self, x):
-        """Called when trackbar values change"""
-        # Force processing when user adjusts trackbars
-        if self.current_image is not None:
-            self.process_current_image()
+    def on_trackbar_change(self, val):
+        """Lightweight callback that just sets update flag"""
+        self.needs_update = True
+    
+    def timer_callback(self):
+        """Timer-based processing instead of callback-based"""
+        if self.needs_update and self.current_image is not None:
+            with self.processing_lock:
+                self.process_current_image()
+                self.needs_update = False
     
     def get_trackbar_values(self):
         """Get current trackbar values as tuple"""
@@ -68,16 +78,10 @@ class ColorCalibrationNode(Node):
     
     def image_callback(self, msg):
         try:
-            # Convert ROS image to OpenCV and store
-            self.current_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
-            
-            # Throttle processing to reduce CPU load
-            current_time = time.time()
-            if current_time - self.last_process_time < self.process_interval:
-                return
-            
-            self.last_process_time = current_time
-            self.process_current_image()
+            with self.processing_lock:
+                # Convert ROS image to OpenCV and store
+                self.current_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
+                self.needs_update = True
         except Exception as e:
             self.get_logger().error(f'Error processing image: {e}')
     
@@ -89,9 +93,8 @@ class ColorCalibrationNode(Node):
         # Get trackbar values
         h_low, h_high, s_low, s_high, v_low, v_high = self.get_trackbar_values()
         
-        # Resize image for faster processing (optional - uncomment to use)
-        # cv_image = cv2.resize(self.current_image, (320, 240))
-        cv_image = self.current_image
+        # Work with a copy to avoid threading issues
+        cv_image = self.current_image.copy()
         
         # Convert to HSV
         hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
@@ -100,8 +103,8 @@ class ColorCalibrationNode(Node):
         mask = cv2.inRange(hsv, np.array([h_low, s_low, v_low]), 
                           np.array([h_high, s_high, v_high]))
         
-        # Apply morphological operations (simplified)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))  # Smaller kernel
+        # Apply morphological operations
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
         
         # Find contours
@@ -137,10 +140,10 @@ class ColorCalibrationNode(Node):
         cv2.putText(result, f"HSV: {h_low}-{h_high}, {s_low}-{s_high}, {v_low}-{v_high}", 
                    (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         
-        # Show only the result image (not original or mask)
+        # Show the result
         cv2.imshow('Color Calibration', result)
         
-        # Check for quit or save
+        # Check for quit or save (non-blocking)
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'):
             self.save_and_quit()

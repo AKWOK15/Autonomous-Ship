@@ -60,16 +60,24 @@ private:
         // this->declare_parameter<int>("colors.blue.val_low", 50);
         // this->declare_parameter<int>("colors.blue.val_high", 255);
         
-        // Red color (note: red wraps around in HSV)
-        this->declare_parameter<int>("colors.red.hue_low", 0);
-        this->declare_parameter<int>("colors.red.hue_high", 15);  // Slightly wider
-        this->declare_parameter<int>("colors.red.sat_low", 50);   // More forgiving
-        this->declare_parameter<int>("colors.red.sat_high", 255);
-        this->declare_parameter<int>("colors.red.val_low", 50);   // More forgiving
-        this->declare_parameter<int>("colors.red.val_high", 255);
-            
-        this->declare_parameter<int>("colors.green.hue_low", 15);
-        this->declare_parameter<int>("colors.green.hue_high", 150);
+        // Light red color (note: red wraps around in HSV)
+        this->declare_parameter<int>("colors.dark_red.hue_low", 160);
+        this->declare_parameter<int>("colors.dark_red.hue_high", 179);  // Slightly wider
+        this->declare_parameter<int>("colors.dark_red.sat_low", 150);   // More forgiving
+        this->declare_parameter<int>("colors.dark_red.sat_high", 255);
+        this->declare_parameter<int>("colors.dark_red.val_low", 50);   // More forgiving
+        this->declare_parameter<int>("colors.dark_red.val_high", 255);
+
+        //Dark red
+        this->declare_parameter<int>("colors.light_red.hue_low", 0);
+        this->declare_parameter<int>("colors.light_red.hue_high", 10);  // Slightly wider
+        this->declare_parameter<int>("colors.light_red.sat_low", 150);   // More forgiving
+        this->declare_parameter<int>("colors.light_red.sat_high", 255);
+        this->declare_parameter<int>("colors.light_red.val_low", 50);   // More forgiving
+        this->declare_parameter<int>("colors.light_red.val_high", 255);
+
+        this->declare_parameter<int>("colors.green.hue_low", 40);
+        this->declare_parameter<int>("colors.green.hue_high", 130);
         this->declare_parameter<int>("colors.green.sat_low", 80);
         this->declare_parameter<int>("colors.green.sat_high", 255);
         this->declare_parameter<int>("colors.green.val_low", 50);
@@ -86,7 +94,7 @@ private:
     void getColorParameters()
     {
         // Method 1: Load structured parameters
-        std::vector<std::string> color_names = {"red", "green"};
+        std::vector<std::string> color_names = {"dark_red", "light_red", "green"};
         // std::vector<std::string> color_names = {"blue", "red", "green", "black"};
         
         for (const auto& color : color_names)
@@ -184,6 +192,15 @@ private:
         cv::Mat mask;
         cv::inRange(hsv, cv::Scalar(color_range.hue_low, color_range.sat_low, color_range.val_low), 
                     cv::Scalar(color_range.hue_high, color_range.sat_high, color_range.val_high), mask);
+                //red color wrap around
+        if (color_range.name == "red" && color_range.hue_low > color_range.hue_high) {
+            cv::Mat mask1, mask2;
+            cv::inRange(hsv, cv::Scalar(0, color_range.sat_low, color_range.val_low), 
+                        cv::Scalar(color_range.hue_high, color_range.sat_high, color_range.val_high), mask1);
+            cv::inRange(hsv, cv::Scalar(color_range.hue_low, color_range.sat_low, color_range.val_low), 
+                        cv::Scalar(179, color_range.sat_high, color_range.val_high), mask2);
+            cv::bitwise_or(mask1, mask2, mask);
+        }
         cv::Mat kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5));
         cv::morphologyEx(mask, mask, cv::MORPH_OPEN, kernel);
         cv::morphologyEx(mask, mask, cv::MORPH_CLOSE, kernel);
@@ -260,7 +277,8 @@ private:
             {
                 // Turn towards object
                 cmd_vel.linear.x = 0.1; // Slow forward movement while turning
-                cmd_vel.angular.z = -error * turn_speed / center_x; // Proportional turn
+                // cmd_vel.angular.z = -error * turn_speed / center_x; // Proportional turn
+                cmd_vel.angular.z = object_x / 3.55;
                 
                 if (error > 0)
                 {
