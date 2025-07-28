@@ -5,6 +5,8 @@ from geometry_msgs.msg import Twist
 from std_msgs.msg import String
 import message_filters
 import serial
+import message_filters
+import threading
 
 class SensorFusionNode(Node):
     def __init__(self):
@@ -18,15 +20,31 @@ class SensorFusionNode(Node):
         self.cmd_vel_sub = message_filters.Subscriber(self, Twist, '/camera/cmd_vel')
         self.detected_color_sub = message_filters.Subscriber(self, String, '/camera/detected_color')
         
-        # Synchronize messages by timestamp (remove self.ser from synchronizer)
+        # Synchronize messages by timestamp 
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [self.detected_color_sub, self.cmd_vel_sub, self.ultrasonic_sub],  # Only ROS subscribers here
             queue_size=10,
             slop=0.1,  # 100ms tolerance
             allow_headerless=True
         )
-        self.ts.registerCallback(self.fusion_callback)
+        self.ts.registerCallback(self.sync_callback)
 
+        self.latest_data = None
+        self.data_lock = threading.Lock()
+
+        self.timer = self.create_timer(1, self.timer_callback)
+
+    def sync_callback(self, detected_color_msg, vel_msg, ultrasonic_msg):
+        with self.data_lock:
+                self.latest_data = (detected_color_msg, vel_msg, ultrasonic_msg)
+
+    def timer_callback(self):
+        with self.data_lock:
+            if self.latest_data is not None:
+                detected_color_msg, vel_msg, ultrasonic_msg = self.latest_data
+                self.fusion_callback(detected_color_msg, vel_msg, ultrasonic_msg)
+
+    
     def __str__(self):
         return f"Sensor fusion: {self.ts}"
 
