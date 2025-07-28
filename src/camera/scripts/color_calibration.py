@@ -8,9 +8,9 @@ import time
 
 class ColorCalibrationNode(Node):
     def __init__(self):
+        #Node is the parent class, passing in color_calibration_node names the node, used for identification in ROS system, logging, topic namespacing 
         super().__init__('color_calibration_node')
         self.bridge = CvBridge()
-        
         # Throttle image processing to reduce load
         self.last_process_time = 0
         self.process_interval = 0.2  # Process every 200ms (5 FPS max)
@@ -78,7 +78,6 @@ class ColorCalibrationNode(Node):
             
             self.last_process_time = current_time
             self.process_current_image()
-                
         except Exception as e:
             self.get_logger().error(f'Error processing image: {e}')
     
