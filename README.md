@@ -13,6 +13,8 @@ able to navigate race course, think alpine/downhill skiing
 # Accomplished Steps
 1. Built boat 1.0 in Autodesk
 <img width="754" alt="Screenshot 2025-05-31 at 1 35 24 PM" src="https://github.com/user-attachments/assets/e0b49fca-9878-48d5-90a6-fdf6400a827d" />
+2. Fused ultrasonic sensor with Raspberry Pi Camera to control angle of servo motor \
+   a. Currently implementing autonomous following as the first use case
 
 
 # Next Steps
