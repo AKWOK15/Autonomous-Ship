@@ -7,6 +7,7 @@ import message_filters
 import serial
 import message_filters
 import threading
+import time
 
 class SensorFusionNode(Node):
     def __init__(self):
@@ -14,7 +15,7 @@ class SensorFusionNode(Node):
         
         # Initialize serial connection to Arduino
         self.ser = serial.Serial('/dev/ttyACM0', 9600)
-        
+        self.x = 0
         # Subscribe to both sensors
         self.ultrasonic_sub = message_filters.Subscriber(self, Range, '/ultrasonic/range')
         self.cmd_vel_sub = message_filters.Subscriber(self, Twist, '/camera/cmd_vel')
@@ -56,10 +57,10 @@ class SensorFusionNode(Node):
         self.get_logger().info(f'angular.z: {servo_motor_angle:.2f} degrees')
         
         color = detected_color_msg.data
-        self.get_logger().info(f'Color of detected object: {color}')
+        
         
         # Determine servo angle based on color
-        if color == 'dark_red':
+        if color == 'black':
             
             self.get_logger().info(f'Servo motor angle: {servo_motor_angle}')
         
@@ -75,9 +76,26 @@ class SensorFusionNode(Node):
     def call_arduino(self, servo_motor_angle):
         try:
             # Send angle as bytes with newline terminator
-            command = f"{servo_motor_angle}\n"
-            self.ser.write(command.encode())
-            self.get_logger().info(f'Sent to Arduino: {servo_motor_angle}')
+            if self.x == 0:
+                
+                self.get_logger().info(f'Made it to first self.x')
+                command = f"{180}\n"
+                self.x+=1
+            elif self.x == 1:
+                command = f"{0}\n"
+                self.x+=1
+            elif self.x == 2:
+                command = f"{180}\n"
+                self.x+=1
+            else:
+                command = f"{servo_motor_angle}\n"
+            time.sleep(0.2)
+            
+            # Read any response from Arduino
+            if self.ser.in_waiting > 0:
+                response = self.ser.readline().decode('utf-8').strip()
+                if response:
+                    self.get_logger().info(f'Arduino says: {response}')
         except Exception as e:
             self.get_logger().error(f'Failed to write to Arduino: {e}')
 

@@ -83,18 +83,18 @@ private:
         this->declare_parameter<int>("colors.green.val_low", 50);
         this->declare_parameter<int>("colors.green.val_high", 255);
         
-        // this->declare_parameter<int>("colors.black.hue_low", 0);
-        // this->declare_parameter<int>("colors.black.hue_high", 0);
-        // this->declare_parameter<int>("colors.black.sat_low", 0);
-        // this->declare_parameter<int>("colors.black.sat_high", 0);
-        // this->declare_parameter<int>("colors.black.val_low", 0);
-        // this->declare_parameter<int>("colors.black.val_high", 0);
+        this->declare_parameter<int>("colors.black.hue_low", 0);
+        this->declare_parameter<int>("colors.black.hue_high", 10);
+        this->declare_parameter<int>("colors.black.sat_low", 0);
+        this->declare_parameter<int>("colors.black.sat_high", 30);
+        this->declare_parameter<int>("colors.black.val_low", 0);
+        this->declare_parameter<int>("colors.black.val_high", 100);
     }
 
     void getColorParameters()
     {
         // Method 1: Load structured parameters
-        std::vector<std::string> color_names = {"dark_red", "light_red", "green"};
+        std::vector<std::string> color_names = {"dark_red", "light_red", "green", "black"};
         // std::vector<std::string> color_names = {"blue", "red", "green", "black"};
         
         for (const auto& color : color_names)
@@ -264,7 +264,7 @@ private:
             int error = object_x - center_x;
             
             // Proportional control for turning
-            double turn_threshold = image_width * 0.1; // 10% of image width
+            double turn_threshold = image_width * 0.05; // 5% of image width
             
             if (abs(error) < turn_threshold)
             {

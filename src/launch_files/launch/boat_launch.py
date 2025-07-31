@@ -96,10 +96,16 @@ def generate_launch_description():
             }
         ],
     )
+
+    movement_detection_node = Node(
+        package='camera',
+        executable='movement_detection_node',
+    )
     
     sensor_fusion = Node(
         package='sensor_fusion',
         executable='fusion_node',
+        arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     return LaunchDescription([
@@ -109,5 +115,6 @@ def generate_launch_description():
         ultrasonic_sensor_node,
         sensor_fusion,
         v4l2_camera_node,
-        colors_detection_node
+        colors_detection_node,
+        movement_detection_node
     ])

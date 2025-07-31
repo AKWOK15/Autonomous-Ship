@@ -12,7 +12,7 @@ class ViewProcessedImageNode(Node):
         self.bridge = CvBridge()
         self.subscription = self.create_subscription(
             Image,
-            '/camera/processed_image',
+            '/camera/processed_movement_image',
             self.image_callback,
             10
         )
