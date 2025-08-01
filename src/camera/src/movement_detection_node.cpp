@@ -39,7 +39,9 @@ public:
         KNN_subtractor = cv::createBackgroundSubtractorKNN(true);
 
         // Create MOG2 background subtractor
-        MOG2_subtractor = cv::createBackgroundSubtractorMOG2(true);
+        //(int history = 100, double varThreshold = 16, bool detectShadows = true
+        //
+        MOG2_subtractor = cv::createBackgroundSubtractorMOG2(100,16,true);
         bg_subtractor = MOG2_subtractor;
         RCLCPP_INFO(this->get_logger(), "Movement Node Initialized");
     }
@@ -54,10 +56,10 @@ private:
             cv::Mat frame = cv_ptr->image;
             cv::Mat foreground_mask, threshold_img, dilated;
             //bg_subtractor is background subtraction, results in foreground_mask
-            bg_subtractor->apply(frame, foreground_mask);
+            bg_subtractor->apply(frame, foreground_mask, 0.4);
 
             // Apply threshold to create a binary image
-            cv::threshold(foreground_mask, threshold_img, 120, 255, cv::THRESH_BINARY);
+            cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
 
             // Dilate the threshold image to thicken the regions of interest
             cv::dilate(threshold_img, dilated, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), cv::Point(-1, -1), 1);
@@ -67,27 +69,41 @@ private:
             cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
             // Draw bounding boxes for contours that exceed a certain area threshold
-            for (size_t i = 0; i < contours.size(); i++) {
-                if (cv::contourArea(contours[i]) > 150) {
-                    cv::Rect bounding_box = cv::boundingRect(contours[i]);
-                    cv::rectangle(frame, bounding_box, cv::Scalar(255, 255, 0), 2);
+            double max_area = 0;
+            double min_area = 1000;
+            cv::Point centroid(-1, -1);
+            int largest_contour_index = -1;
+            for (size_t i = 0; i < contours.size(); i++)
+            {
+                double area = cv::contourArea(contours[i]);
+                if (area > max_area && area > min_area)
+                {
+                    max_area = area;
+                    largest_contour_index = i;
                 }
             }
-            sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
-            image_publisher_.publish(processed_msg);
+        
+            // Process the largest contour if found
+            if (largest_contour_index >= 0)
+            {
+                // Draw contour on original image
+                cv::Rect bounding_box = cv::boundingRect(contours[largest_contour_index]);
+                cv::rectangle(frame, bounding_box, cv::Scalar(255, 255, 0), 2);
+                
+                // Calculate centroid
+                cv::Moments moments = cv::moments(contours[largest_contour_index]);
+                centroid.x = static_cast<int>(moments.m10 / moments.m00);
+                centroid.y = static_cast<int>(moments.m01 / moments.m00);
+                cv::circle(frame, centroid, 5, cv::Scalar(0, 0, 255), -1);
+                sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
+                image_publisher_.publish(processed_msg);
+            // Draw centroid
             // Show the different outputs
             // cv::imshow("Subtractor", foreground_mask);
             // cv::imshow("Threshold", threshold_img);
             // cv::imshow("Detection", frame);
 
-            
-            // sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", image).toImageMsg();
-            // image_publisher_.publish(processed_msg);
-            // Exit when 'ESC' is pressed
-    
-            // Process the image for color detection
-            
-            // Publish processed image for debugging
+            }
         }
         catch (cv_bridge::Exception& e)
         {

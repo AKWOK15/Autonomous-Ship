@@ -51,7 +51,7 @@ def generate_launch_description():
                 'image_height': LaunchConfiguration('camera_height'),
                 'pixel_format': 'YUYV',
                 'camera_frame_id': 'camera_link',
-                'fps': 20.0,
+                'fps': 40.0,
                 
                 # === BALANCED PARAMETERS FOR BLACK OBJECT DETECTION ===
                 
