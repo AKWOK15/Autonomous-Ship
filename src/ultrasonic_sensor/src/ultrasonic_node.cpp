@@ -10,7 +10,7 @@ public:
         // Assigning value to trigger pin of this class
         this->declare_parameter<int>("trigger_pin", 18);
         this->declare_parameter<int>("echo_pin", 24);
-        this->declare_parameter<double>("publish_rate", 10.0);  // Hz
+        this->declare_parameter<double>("publish_rate", 8.0);  // Hz
         this->declare_parameter<double>("max_range", 4.0);      // meters
         this->declare_parameter<double>("min_range", 0.02);     // meters
         this->declare_parameter<std::string>("frame_id", "ultrasonic_frame");

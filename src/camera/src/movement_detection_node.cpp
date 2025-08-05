@@ -97,11 +97,7 @@ private:
                 cv::circle(frame, centroid, 5, cv::Scalar(0, 0, 255), -1);
                 sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
                 image_publisher_.publish(processed_msg);
-            // Draw centroid
-            // Show the different outputs
-            // cv::imshow("Subtractor", foreground_mask);
-            // cv::imshow("Threshold", threshold_img);
-            // cv::imshow("Detection", frame);
+                publishNavigationCommand(centroid.x, frame.cols);
 
             }
         }
@@ -113,7 +109,7 @@ private:
 
 
 
-    void publishNavigationCommand(int object_x, int image_width, double turn_speed)
+    void publishNavigationCommand(int object_x, int image_width)
     {
         geometry_msgs::msg::Twist cmd_vel;
         

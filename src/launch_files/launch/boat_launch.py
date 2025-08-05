@@ -29,7 +29,7 @@ def generate_launch_description():
     ultrasonic_sensor_node = Node(
         package='ultrasonic_sensor',
         executable='ultrasonic_node',
-        arguments=['--ros-args', '--log-level', 'ERROR'],
+        # arguments=['--ros-args', '--log-level', 'ERROR'],
         name='ultrasonic_node',
         parameters=[
             {
@@ -51,7 +51,7 @@ def generate_launch_description():
                 'image_height': LaunchConfiguration('camera_height'),
                 'pixel_format': 'YUYV',
                 'camera_frame_id': 'camera_link',
-                'fps': 40.0,
+                'fps': 20.0,
                 
                 # === BALANCED PARAMETERS FOR BLACK OBJECT DETECTION ===
                 
@@ -64,13 +64,6 @@ def generate_launch_description():
                 # # Brightness and Contrast - SUBTLE adjustments
                 # 'brightness': 0,   # Keep neutral initially
                 'contrast': 45,    # Slight contrast boost (default ~32)
-                
-                # # Gamma correction - SMALL adjustment
-                # 'gamma': 110,  # Very slight gamma adjustment (default 100)
-                
-                # # Sharpness - minimal increase
-                # 'sharpness': 26,  # Slight sharpening (default 24)
-                
           
             }
         ],
@@ -100,21 +93,22 @@ def generate_launch_description():
     movement_detection_node = Node(
         package='camera',
         executable='movement_detection_node',
+        arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     sensor_fusion = Node(
         package='sensor_fusion',
         executable='fusion_node',
-        arguments=['--ros-args', '--log-level', 'ERROR']
+        # arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     return LaunchDescription([
         camera_device_arg,
         camera_width_arg, 
         camera_height_arg,
-        ultrasonic_sensor_node,
+        # ultrasonic_sensor_node,
         sensor_fusion,
         v4l2_camera_node,
-        colors_detection_node,
+        # colors_detection_node,
         movement_detection_node
     ])
