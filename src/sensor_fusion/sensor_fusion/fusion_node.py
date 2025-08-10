@@ -61,16 +61,35 @@ class SensorFusionNode(Node):
 
     def call_arduino(self, servo_motor_angle):
         try:
+            # Clear any stale data in the input buffer before sending new command
+            if self.ser.in_waiting > 0:
+                stale_data = self.ser.read(self.ser.in_waiting)
+                self.get_logger().info(f'Cleared {len(stale_data)} stale bytes from buffer')
+            
             # Send angle as bytes with newline terminator
-            self.get_logger().info(f'angular.z: {servo_motor_angle:.2f} degrees')
+            self.get_logger().info(f'Sending angular.z: {servo_motor_angle:.2f} degrees')
             command = f"{servo_motor_angle}\n"
             self.ser.write(command.encode())
+            self.ser.flush()  # Ensure data is sent immediately
             
-            # Read any response from Arduino
+            # Wait longer for Arduino to fully process and respond
+            time.sleep(0.5)  # Give Arduino 500ms to process
+            
+            # Read response from Arduino
             if self.ser.in_waiting > 0:
-                response = self.ser.readline().decode('utf-8').strip()
-                if response:
-                    self.get_logger().info(f'Arduino says: {response}')
+                self.get_logger().info(f'self.ser.in_waiting: {self.ser.in_waiting} bytes')
+                
+                # Read all available data and split into lines
+                all_data = self.ser.read(self.ser.in_waiting).decode('utf-8', errors='ignore')
+                
+                # Split by newlines and process each complete message
+                lines = all_data.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if line:  # Only log non-empty lines
+                        self.get_logger().info(f'Arduino says: {line}')
+            else:
+                self.get_logger().warn(f'No response received for angle {servo_motor_angle}')
         except Exception as e:
             self.get_logger().error(f'Failed to write to Arduino: {e}')
 
