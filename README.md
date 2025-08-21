@@ -15,6 +15,10 @@ Develop a ship that changes its speed and direction to follow a moving object.
 5. Moved the sensor to the Arduino. I still had to sync the sensor with the servo motor, but the Arduino made it much easier to control clock cycles.
 6. Implemented ultrasonic sensor to change motor RPM based on distance from tracked object.
 
+### Lessons Learned
+1. Hardware + Software > Software. I'd intern from 9-5, then work on this from 5-8. If this was a website project, I would not have been able to stay motivated, but this project was/is so much more fun. 
+2. Perception is really hard because there are so many external factors that can affect it: lighting being one.
+3. I now understand why hardware development takes so much longer than software. 3D printing the housing (boat hull) for the hardware took hours, whenever there's a bug, it could be a bug in the software or on the hardware, and I frequently had to wait for ordered parts before I could continue.
 
 ### Next Steps
 1. Make the boat watertight to test it in water
