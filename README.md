@@ -7,6 +7,10 @@ Up until this point, I've only experimented with web development and wasn't too 
 Develop a ship that changes its speed and direction to follow a moving object.
 
 ### Results
+![IMG_5083](https://github.com/user-attachments/assets/0d5a5739-c91d-4640-bfbd-73bdded864d7)
+![IMG_5082](https://github.com/user-attachments/assets/29295b17-519f-49a8-bfd0-91d051764ad6)
+![IMG_5081](https://github.com/user-attachments/assets/838e760f-7b37-4663-82df-fd28c33415fa)
+
 ### Accomplished Steps
 1. Built boat in Autodesk Fusion.
 2. Tried to detect objects by color. But, I quickly realized that this approach relied too much on lighting. Based on my goal, I then realized I needed to focus more on detecting object movement rather than object identificaiton. 
