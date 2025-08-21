@@ -2,10 +2,11 @@
 
 #include <Servo.h>
 
-// Pin definitions
-const int SERVO_PIN = 9;
-const int TRIGGER_PIN = 10;
-const int ECHO_PIN = 8;
+const int SERVO_PIN = 8;
+const int TRIGGER_PIN = 9;
+const int ECHO_PIN = 10;
+// PWM Pin
+const int MOTOR_PIN = 3;
 
 // Servo control variables
 Servo myservo;
@@ -56,6 +57,7 @@ void loop() {
     smoothMove();
     handleUltrasonicTiming();
     processUltrasonicMeasurement();
+    motorSpeed();
 }
 
 // DEBUG VERSION: Show exactly what we receive
@@ -135,6 +137,44 @@ void processUltrasonicMeasurement() {
         echo_timeout = false;
         last_measurement_valid = false;
     }
+}
+
+void motorSpeed(){
+  int avgDistance = 0;
+  
+  // Calculate average distance
+  for (int x = 0; x < BUFFER_SIZE; x++){
+    avgDistance += distance_buffer[x];
+  }
+  avgDistance = avgDistance / BUFFER_SIZE;
+  
+  Serial.print("Distance: ");
+  Serial.print(avgDistance);
+  Serial.print(" cm, ");
+  
+  // Map distance to PWM value (0-255)
+  // Closer objects = slower motor, farther objects = faster motor
+  int motorSpeed;
+  
+  if (avgDistance <= 10) {
+    // Very close - motor off
+    motorSpeed = 0;
+  }
+  else if (avgDistance >= 100) {
+    // Far away - maximum speed
+    motorSpeed = 255;
+  }
+  else {
+    // Map distance 10-100cm to PWM 0-255
+    // Linear mapping: closer = slower, farther = faster
+    motorSpeed = map(avgDistance, 10, 100, 0, 255);
+  }
+  
+  // Apply PWM to motor
+  analogWrite(MOTOR_PIN, motorSpeed);
+  
+  Serial.print("Motor PWM: ");
+  Serial.println(motorSpeed);
 }
 
 void start_echo_measurement() {
