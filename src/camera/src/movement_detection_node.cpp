@@ -134,7 +134,7 @@ private:
             {
                 // Object is centered - move forward
                 cmd_vel.linear.x = 0.3;
-                cmd_vel.angular.z = 0.0;
+                cmd_vel.angular.z = 90;
                 RCLCPP_INFO(this->get_logger(), "Moving forward - object centered");
             }
             else
@@ -142,7 +142,7 @@ private:
                 // Turn towards object
                 cmd_vel.linear.x = 0.1; // Slow forward movement while turning
                 // cmd_vel.angular.z = -error * turn_speed / center_x; // Proportional turn
-                cmd_vel.angular.z = object_x / 3.55;
+                cmd_vel.angular.z = object_x / 5.33;
                 
                 if (error > 0)
                 {
