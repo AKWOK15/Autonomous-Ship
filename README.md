@@ -14,7 +14,7 @@ Develop a ship that changes its speed and direction to follow a moving object.
 
 https://github.com/user-attachments/assets/ad108579-19cb-4ddf-bd21-bdc428876bc9
 
- Chose MOG2 because it detects objects 3x faster from start up.
+ Chose MOG2 over KNN because it detects objects 3x faster from start up.
 
 
 ### Accomplished Steps
