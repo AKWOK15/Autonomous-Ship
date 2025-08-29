@@ -17,13 +17,8 @@ class CVComparision(Node):
             10
         )
         
-        # Create windows
-        # cv2.namedWindow('MOG2', cv2.WINDOW_NORMAL)
-        # cv2.namedWindow('KNN', cv2.WINDOW_NORMAL)
         cv2.namedWindow('MOG2', cv2.WINDOW_NORMAL)
         cv2.namedWindow('KNN', cv2.WINDOW_NORMAL)
-        # cv2.resizeWindow('MOG2', 640, 480)
-        # cv2.resizeWindow('KNN', 640, 480)
         cv2.resizeWindow('MOG2', 640, 480)
         cv2.resizeWindow('KNN', 640, 480)
         
@@ -36,27 +31,18 @@ class CVComparision(Node):
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if contours:
-            # Find the contour with maximum area
             biggest_contour = max(contours, key=cv2.contourArea)
             return biggest_contour, contours
         return None, []
 
-    def draw_rectangle_on_image(self, image, contour, all_contours):
+    def draw_rectangle_on_image(self, image, contour):
         """Draw rectangles around the biggest contour and all contours"""
         result_image = image.copy()
         
-        # Draw rectangles around all contours in gray
-        # for cnt in all_contours:
-        #     if cv2.contourArea(cnt) > 100:  # Filter small contours
-        #         x, y, w, h = cv2.boundingRect(cnt)
-        #         cv2.rectangle(result_image, (x, y), (x + w, y + h), (128, 128, 128), 1)
-        
-        # Draw rectangle around biggest contour in green
         if contour is not None:
             x, y, w, h = cv2.boundingRect(contour)
             cv2.rectangle(result_image, (x, y), (x + w, y + h), (0, 255, 0), 3)
             
-            # Add area and dimensions text
             area = cv2.contourArea(contour)
             cv2.putText(result_image, f'Area: {int(area)}', (x, y-30), 
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
@@ -70,25 +56,18 @@ class CVComparision(Node):
             # Convert ROS image to OpenCV and store
             self.current_image = self.bridge.imgmsg_to_cv2(msg, "bgr8")
             
-            # Apply background subtraction
             MOG2_mask = self.MOG2.apply(self.current_image)
             KNN_mask = self.KNN.apply(self.current_image)
             
-            # Find biggest contours
             mog2_biggest, mog2_all = self.find_biggest_contour(MOG2_mask)
             knn_biggest, knn_all = self.find_biggest_contour(KNN_mask)
             
-            # Draw rectangles on original image
-            mog2_rectangle_image = self.draw_rectangle_on_image(self.current_image, mog2_biggest, mog2_all)
-            knn_rectangle_image = self.draw_rectangle_on_image(self.current_image, knn_biggest, knn_all)
+            mog2_rectangle_image = self.draw_rectangle_on_image(self.current_image, mog2_biggest)
+            knn_rectangle_image = self.draw_rectangle_on_image(self.current_image, knn_biggest)
             
-            # Display all images
-            # cv2.imshow('MOG2', MOG2_mask)
-            # cv2.imshow('KNN', KNN_mask)
             cv2.imshow('MOG2', mog2_rectangle_image)
             cv2.imshow('KNN', knn_rectangle_image)
             
-            # Wait for one millisecond and proceed if no key is pressed
             cv2.waitKey(1)
             
         except Exception as e:
