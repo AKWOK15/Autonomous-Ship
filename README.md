@@ -30,6 +30,4 @@ https://github.com/user-attachments/assets/ad108579-19cb-4ddf-bd21-bdc428876bc9
 2. Perception is really hard because there are so many external factors that can affect it: lighting being one.
 3. I now understand why hardware development takes so much longer than software. 3D printing the housing (boat hull) for the hardware took hours, whenever there's a bug, it could be a bug in the software or on the hardware, and I frequently had to wait for ordered parts before I could continue.
 
-### Next Steps
-1. Make the boat watertight to test it in water
 
