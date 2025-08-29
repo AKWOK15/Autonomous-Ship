@@ -32,6 +32,7 @@ public:
             std::bind(&MovementDetectionNode::imageCallback, this, std::placeholders::_1));
         
         // Publisher for processed image (for debugging)
+        // Advertise publicizes that the node will be publishing messages on the given topic. Creates multicast stream to ensure other nodes receive it
         image_publisher_ = it_->advertise("/camera/processed_movement_image", 1);
         
         // Publisher for navigation commands
