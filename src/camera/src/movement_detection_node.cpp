@@ -37,7 +37,7 @@ public:
         image_subscriber_ = it_->subscribe("/camera/image_raw", 1, 
             std::bind(&MovementDetectionNode::imageCallback, this, std::placeholders::_1));
         
-        // Publisher for processed image (for debugging), it is image trasnport, in it, advertise is same as create_publisher
+        // Publisher for processed image (for debugging)
         image_publisher_ = it_->advertise("/camera/processed_movement_image", 1);
         
         processing_time_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/camera/processing_time", 10);
