@@ -53,16 +53,16 @@ public:
         bg_subtractor = MOG2_subtractor;
         RCLCPP_INFO(this->get_logger(), "Movement Node Initialized");
     }
-
+//std::pair return type since returning two different types 
 private:
-    std::vector<std::vector<cv::Point>> model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
+    std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
         clock_t start_time = clock();
         cv::Mat resized_image;
-        cv::resize(frame, resized_image, cv::Size(64, 64));
+        cv::resize(frame, resized_image, cv::Size(320, 240));
         cv::Mat foreground_mask, threshold_img, dilated;
         //bg_subtractor is background subtraction, results in foreground_mask
-        bg_subtractor->apply(resized_image, foreground_mask, 0.4);
-        // Apply threshold to create a binary image
+        bg_subtractor->apply(resized_image, foreground_mask, -1);
+        // Apply threshold to create a binary image, sepearate moving pixels from white pixels 
         cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
 
         // Dilate the threshold image to thicken the regions of interest
@@ -77,9 +77,9 @@ private:
             static_cast<double>(start_time), 
             static_cast<double>(end_time - start_time)
         };
-        RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
+        // RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
         publisher_->publish(processing_time_msg);
-        return contours;
+        return {resized_image, contours};
     }
     std::vector<std::vector<cv::Point>> old_model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
         clock_t start_time = clock();
@@ -101,7 +101,6 @@ private:
             static_cast<double>(start_time), 
             static_cast<double>(end_time - start_time)
         };
-        RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
         publisher_->publish(processing_time_msg);
         return contours;
     }
@@ -113,8 +112,10 @@ private:
             // Convert ROS image to OpenCV
             cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             cv::Mat frame = cv_ptr->image;
-            std::vector<std::vector<cv::Point>> contours = model(frame, pro_time_publisher_new_);
-            old_model(frame, pro_time_publisher_old_);
+            
+            auto [resized_image, contours] = model(frame, pro_time_publisher_new_);
+            // cv::Mat resized_image, std::vector<std::vector<cv::Point>> contours
+            // old_model(frame, pro_time_publisher_old_);
 
             // Draw bounding boxes for contours that exceed a certain area threshold
             double max_area = 0;
@@ -136,17 +137,24 @@ private:
             {
                 // Draw contour on original image
                 cv::Rect bounding_box = cv::boundingRect(contours[largest_contour_index]);
-                cv::rectangle(frame, bounding_box, cv::Scalar(255, 255, 0), 2);
+                cv::rectangle(resized_image, bounding_box, cv::Scalar(255, 255, 0), 2);
                 
                 // Calculate centroid
                 cv::Moments moments = cv::moments(contours[largest_contour_index]);
-                centroid.x = static_cast<int>(moments.m10 / moments.m00);
-                centroid.y = static_cast<int>(moments.m01 / moments.m00);
-                cv::circle(frame, centroid, 5, cv::Scalar(0, 0, 255), -1);
+                if (moments.m00 != 0) {
+                    centroid.x = static_cast<int>(moments.m10 / moments.m00);
+                    centroid.y = static_cast<int>(moments.m01 / moments.m00);
+                    
+                    RCLCPP_INFO(this->get_logger(), "Centroid: (%d, %d), Area: %.2f", 
+                                centroid.x, centroid.y, max_area);
+                } else {
+                    RCLCPP_WARN(this->get_logger(), "Invalid moments (m00 = 0)");
+                }
+                cv::circle(resized_image, centroid, 3, cv::Scalar(0, 0, 255), -1);
                 // toImageMsg() returns sensor_msgs::msg::Image::SharedPtr
-                sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
+                sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", resized_image).toImageMsg();
                 image_publisher_.publish(processed_msg);
-                publishNavigationCommand(centroid.x, frame.cols);
+                publishNavigationCommand(centroid.x, resized_image.cols);
 
             }
         }
@@ -184,7 +192,7 @@ private:
                 // Object is centered - move forward
                 cmd_vel.linear.x = 0.3;
                 cmd_vel.angular.z = 90;
-                RCLCPP_INFO(this->get_logger(), "Moving forward - object centered");
+                // RCLCPP_INFO(this->get_logger(), "Moving forward - object centered");
             }
             else
             {
@@ -193,14 +201,14 @@ private:
                 // cmd_vel.angular.z = -error * turn_speed / center_x; // Proportional turn
                 cmd_vel.angular.z = object_x / 5.33;
                 
-                if (error > 0)
-                {
-                    RCLCPP_INFO(this->get_logger(), "Turning right - object at x=%d", object_x);
-                }
-                else
-                {
-                    RCLCPP_INFO(this->get_logger(), "Turning left - object at x=%d", object_x);
-                }
+                // if (error > 0)
+                // {
+                //     RCLCPP_INFO(this->get_logger(), "Turning right - object at x=%d", object_x);
+                // }
+                // else
+                // {
+                //     RCLCPP_INFO(this->get_logger(), "Turning left - object at x=%d", object_x);
+                // }
             }
         }
         
