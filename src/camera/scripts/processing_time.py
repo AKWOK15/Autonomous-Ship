@@ -10,7 +10,7 @@ import os
 class ProcessingTime(Node):
     def __init__(self):
         super().__init__('image_viewer_node')
-        self.declare_parameter('output_dir', '~/boat/data')
+        self.declare_parameter('output_dir', '~/boat/data/')
         self.declare_parameter('plot_name', 'processing_time.png')
         
         # Get parameters
@@ -21,6 +21,7 @@ class ProcessingTime(Node):
         # Create output directory
         os.makedirs(output_dir, exist_ok=True)
         self.plot_path = os.path.join(output_dir, plot_name)
+        print(self.plot_path)
         self.bridge = CvBridge()
         self.subscription_old = self.create_subscription(
             Float64MultiArray,
@@ -46,8 +47,10 @@ class ProcessingTime(Node):
             plt.plot(self.old_time, self.old_processing_time, color="blue", label="old")
             plt.plot(self.new_time, self.new_processing_time, color="red", label="new")
             plt.title("Processing Time")
-            plt.show()
+            plt.legend()
             plt.savefig(self.plot_path)
+            #plot.show() wipes the figure
+            plt.show()
             self.get_logger().info('Done')
             rclpy.shutdown()
         if len(self.old_time)%10 == 0:

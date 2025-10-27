@@ -93,7 +93,7 @@ def generate_launch_description():
     movement_detection_node = Node(
         package='camera',
         executable='movement_detection_node',
-        # arguments=['--ros-args', '--log-level', 'ERROR']
+        arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
     sensor_fusion = Node(

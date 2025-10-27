@@ -10,8 +10,7 @@
 #include <image_transport/image_transport.hpp>
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
-#include <ctime>
-#include <cmath>
+#include <chrono>
 #include <string>
 
 class MovementDetectionNode : public rclcpp::Node
@@ -49,19 +48,26 @@ public:
         // Create MOG2 background subtractor
         //(int history = 100, double varThreshold = 16, bool detectShadows = true
         //
-        MOG2_subtractor = cv::createBackgroundSubtractorMOG2(100,16,true);
-        bg_subtractor = MOG2_subtractor;
+        new_bg_subtractor = cv::createBackgroundSubtractorMOG2(50,16,true);
+        old_bg_subtractor = cv::createBackgroundSubtractorMOG2(50,16,true);
         RCLCPP_INFO(this->get_logger(), "Movement Node Initialized");
+        kernel_ = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3));
+        
+        // Pre-allocate all matrices
+        resized_image_ = cv::Mat(120, 160, CV_8UC3);
+        foreground_mask_ = cv::Mat(120, 160, CV_8UC1);
+        threshold_img_ = cv::Mat(120, 160, CV_8UC1);
+        dilated_ = cv::Mat(120, 160, CV_8UC1);
     }
 //std::pair return type since returning two different types 
 private:
     std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
-        clock_t start_time = clock();
+        auto start_time = std::chrono::high_resolution_clock::now();
         cv::Mat resized_image;
-        cv::resize(frame, resized_image, cv::Size(320, 240));
+        cv::resize(frame, resized_image, cv::Size(160, 120));
         cv::Mat foreground_mask, threshold_img, dilated;
         //bg_subtractor is background subtraction, results in foreground_mask
-        bg_subtractor->apply(resized_image, foreground_mask, -1);
+        new_bg_subtractor->apply(resized_image, foreground_mask, -1);
         // Apply threshold to create a binary image, sepearate moving pixels from white pixels 
         cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
 
@@ -71,22 +77,58 @@ private:
         // Find contours in the dilated image
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        clock_t end_time = clock();
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
         auto processing_time_msg = std_msgs::msg::Float64MultiArray();
         processing_time_msg.data = {
-            static_cast<double>(start_time), 
-            static_cast<double>(end_time - start_time)
+            static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(start_time.time_since_epoch()).count()),
+            static_cast<double>(duration.count())  // microseconds
         };
         // RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
         publisher_->publish(processing_time_msg);
         return {resized_image, contours};
     }
+    // std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(
+    //     const cv::Mat& frame,  // Pass by const reference!
+    //     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_)
+    // {
+    //     auto start_time = std::chrono::high_resolution_clock::now();
+        
+    //     // Resize into pre-allocated matrix
+    //     cv::resize(frame, resized_image_, cv::Size(160, 120), 0, 0, cv::INTER_LINEAR);
+        
+    //     // Apply background subtraction
+    //     new_bg_subtractor->apply(resized_image_, foreground_mask_, -1);
+        
+    //     // Threshold to binary
+    //     cv::threshold(foreground_mask_, threshold_img_, 80, 255, cv::THRESH_BINARY);
+        
+    //     // Dilate with pre-computed kernel
+    //     cv::dilate(threshold_img_, dilated_, kernel_, cv::Point(-1, -1), 1);
+        
+    //     // Find contours (reuse vector)
+    //     contours_.clear();
+    //     cv::findContours(dilated_, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        
+    //     auto end_time = std::chrono::high_resolution_clock::now();
+    //     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+    //     auto processing_time_msg = std_msgs::msg::Float64MultiArray();
+    //     processing_time_msg.data = {
+    //         static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(start_time.time_since_epoch()).count()),
+    //         static_cast<double>(duration.count())  // microseconds
+    //     };
+    //     publisher_->publish(processing_time_msg);
+        
+    //     return {resized_image_, contours_};
+    // }
     std::vector<std::vector<cv::Point>> old_model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
-        clock_t start_time = clock();
+        auto start_time = std::chrono::high_resolution_clock::now();;
+        cv::Mat resized_image;
+        cv::resize(frame, resized_image, cv::Size(160, 120));
         cv::Mat foreground_mask, threshold_img, dilated;
         //bg_subtractor is background subtraction, results in foreground_mask
-        bg_subtractor->apply(frame, foreground_mask, 0.4);
-        // Apply threshold to create a binary image
+        old_bg_subtractor->apply(resized_image, foreground_mask, -1);
+        // Apply threshold to create a binary image, sepearate moving pixels from white pixels 
         cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
 
         // Dilate the threshold image to thicken the regions of interest
@@ -95,12 +137,15 @@ private:
         // Find contours in the dilated image
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        clock_t end_time = clock();
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
         auto processing_time_msg = std_msgs::msg::Float64MultiArray();
         processing_time_msg.data = {
-            static_cast<double>(start_time), 
-            static_cast<double>(end_time - start_time)
+            static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(start_time.time_since_epoch()).count()),
+            static_cast<double>(duration.count())  // microseconds
         };
+        // RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
         publisher_->publish(processing_time_msg);
         return contours;
     }
@@ -115,11 +160,11 @@ private:
             
             auto [resized_image, contours] = model(frame, pro_time_publisher_new_);
             // cv::Mat resized_image, std::vector<std::vector<cv::Point>> contours
-            // old_model(frame, pro_time_publisher_old_);
+            old_model(frame, pro_time_publisher_old_);
 
             // Draw bounding boxes for contours that exceed a certain area threshold
             double max_area = 0;
-            double min_area = 1000;
+            double min_area = 50;
             cv::Point centroid(-1, -1);
             int largest_contour_index = -1;
             for (size_t i = 0; i < contours.size(); i++)
@@ -214,7 +259,12 @@ private:
         
         twist_publisher_->publish(cmd_vel);
     }
-        
+        cv::Mat resized_image_;
+        cv::Mat foreground_mask_;
+        cv::Mat threshold_img_;
+        cv::Mat dilated_;
+        cv::Mat kernel_;
+        std::vector<std::vector<cv::Point>> contours_;
         std::shared_ptr<image_transport::ImageTransport> it_;
         image_transport::Subscriber image_subscriber_;
         image_transport::Publisher image_publisher_;
@@ -223,7 +273,8 @@ private:
         // Pubsliher is always a shared pointer 
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_old_;
         rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_new_;
-        cv::Ptr<cv::BackgroundSubtractor> bg_subtractor;
+        cv::Ptr<cv::BackgroundSubtractor> new_bg_subtractor;
+        cv::Ptr<cv::BackgroundSubtractor> old_bg_subtractor;
         cv::Ptr<cv::BackgroundSubtractor> MOG2_subtractor;
         cv::Ptr<cv::BackgroundSubtractor> KNN_subtractor;
 };
