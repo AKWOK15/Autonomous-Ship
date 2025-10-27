@@ -40,7 +40,8 @@ public:
         // Publisher for processed image (for debugging)
         image_publisher_ = it_->advertise("/camera/processed_movement_image", 1);
         
-        processing_time_publisher_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/camera/processing_time", 10);
+        pro_time_publisher_old_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/camera/processing_time_old", 10);
+        pro_time_publisher_new_ = this->create_publisher<std_msgs::msg::Float64MultiArray>("/camera/processing_time_new", 10);
         // Publisher for navigation commands
         twist_publisher_ = this->create_publisher<geometry_msgs::msg::Twist>("/camera/cmd_vel", 10);
         KNN_subtractor = cv::createBackgroundSubtractorKNN(true);
@@ -80,6 +81,30 @@ private:
         publisher_->publish(processing_time_msg);
         return contours;
     }
+    std::vector<std::vector<cv::Point>> old_model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
+        clock_t start_time = clock();
+        cv::Mat foreground_mask, threshold_img, dilated;
+        //bg_subtractor is background subtraction, results in foreground_mask
+        bg_subtractor->apply(frame, foreground_mask, 0.4);
+        // Apply threshold to create a binary image
+        cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
+
+        // Dilate the threshold image to thicken the regions of interest
+        cv::dilate(threshold_img, dilated, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), cv::Point(-1, -1), 1);
+
+        // Find contours in the dilated image
+        std::vector<std::vector<cv::Point>> contours;
+        cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        clock_t end_time = clock();
+        auto processing_time_msg = std_msgs::msg::Float64MultiArray();
+        processing_time_msg.data = {
+            static_cast<double>(start_time), 
+            static_cast<double>(end_time - start_time)
+        };
+        RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
+        publisher_->publish(processing_time_msg);
+        return contours;
+    }
 
     void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
     {
@@ -88,16 +113,8 @@ private:
             // Convert ROS image to OpenCV
             cv_bridge::CvImagePtr cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
             cv::Mat frame = cv_ptr->image;
-            std::vector<std::vector<cv::Point>> contours = model(frame, processing_time_publisher_);
-            // sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
-            //Create object on stack
-            // auto processing_time_msg = std_msgs::msg::Float64MultiArray();
-            // processing_time_msg.data = {
-            //     static_cast<double>(start_time), 
-            //     static_cast<double>(end_time - start_time)
-            // };
-            // processing_time_publisher_->publish(processing_time_msg);
-            // RCLCPP_INFO(this->get_logger(), "Processng time" + std::string(end_time-start_time));
+            std::vector<std::vector<cv::Point>> contours = model(frame, pro_time_publisher_new_);
+            old_model(frame, pro_time_publisher_old_);
 
             // Draw bounding boxes for contours that exceed a certain area threshold
             double max_area = 0;
@@ -196,7 +213,8 @@ private:
         rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_publisher_;
         rclcpp::Publisher<std_msgs::msg::String>::SharedPtr color_publisher_;
         // Pubsliher is always a shared pointer 
-        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr processing_time_publisher_;
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_old_;
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_new_;
         cv::Ptr<cv::BackgroundSubtractor> bg_subtractor;
         cv::Ptr<cv::BackgroundSubtractor> MOG2_subtractor;
         cv::Ptr<cv::BackgroundSubtractor> KNN_subtractor;

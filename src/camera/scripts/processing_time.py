@@ -22,29 +22,42 @@ class ProcessingTime(Node):
         os.makedirs(output_dir, exist_ok=True)
         self.plot_path = os.path.join(output_dir, plot_name)
         self.bridge = CvBridge()
-        self.subscription = self.create_subscription(
+        self.subscription_old = self.create_subscription(
             Float64MultiArray,
-            '/camera/processing_time',
-            self.aggregate_processing_time,
+            '/camera/processing_time_old',
+            lambda msg: self.aggregate_processing_time(msg, True),
             10
         )
-        self.time = []
-        self.processing_time = []
-        
+
+        self.subscription_new = self.create_subscription(
+            Float64MultiArray,
+            '/camera/processing_time_new',
+            lambda msg: self.aggregate_processing_time(msg, False),
+            10
+        )
+        self.old_time = []
+        self.old_processing_time = []
+        self.new_time = []
+        self.new_processing_time= []
         
 
-    def aggregate_processing_time(self, msg):
-        if len(self.time) > 100:
-            plt.plot(self.time, self.processing_time, color="blue", label="old")
+    def aggregate_processing_time(self, msg, is_old):
+        if len(self.old_time) > 100:
+            plt.plot(self.old_time, self.old_processing_time, color="blue", label="old")
+            plt.plot(self.new_time, self.new_processing_time, color="red", label="new")
             plt.title("Processing Time")
             plt.show()
             plt.savefig(self.plot_path)
             self.get_logger().info('Done')
             rclpy.shutdown()
-        if len(self.time)%10 == 0:
-            print(len(self.time))
-        self.time.append(msg.data[0])
-        self.processing_time.append(msg.data[1])
+        if len(self.old_time)%10 == 0:
+            print(len(self.old_time))
+        if is_old:
+            self.old_time.append(msg.data[0])
+            self.old_processing_time.append(msg.data[1])
+        else:
+            self.new_time.append(msg.data[0])
+            self.new_processing_time.append(msg.data[1])
 
         
 
