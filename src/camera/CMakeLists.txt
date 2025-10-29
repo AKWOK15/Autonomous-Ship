@@ -14,7 +14,19 @@ find_package(std_msgs REQUIRED)  # Added this line
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED)
-
+# C++ library for finding package resources at runtime
+find_package(ament_index_cpp REQUIRED)
+#Create an executable called yolo_detector_node and compile yolo_detector_node.cpp into that executable, does not isntall it yet, just compiles in build directory 
+add_executable(obstacle_detection_node src/obstacle_detection_node.cpp)
+ament_target_dependencies(obstacle_detection_node
+  rclcpp
+  sensor_msgs
+  cv_bridge
+  OpenCV
+  image_transport
+  geometry_msgs
+  ament_index_cpp
+)
 # Add executable
 add_executable(colors_detection_node src/colors_detection_node.cpp)
 # Specify dependencies
@@ -52,11 +64,13 @@ ament_target_dependencies(camera_node
   OpenCV
 )
 
-# Install targets
+
+# Install targets, copy compiled executables into install directory 
 install(TARGETS
   camera_node
   colors_detection_node
   movement_detection_node
+  obstacle_detection_node
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -64,6 +78,10 @@ install(TARGETS
 install(DIRECTORY
   config
   DESTINATION share/${PROJECT_NAME}/
+)
+#install yolo model
+install(DIRECTORY models/
+  DESTINATION share/${PROJECT_NAME}/models
 )
 
 # Install Python scripts

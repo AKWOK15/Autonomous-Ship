@@ -95,6 +95,12 @@ def generate_launch_description():
         executable='movement_detection_node',
         arguments=['--ros-args', '--log-level', 'ERROR']
     )
+
+    obstacle_detection_node = Node(
+        package='camera',
+        executable='obstacle_detection_node',
+        # arguments=['--ros-args', '--log-level', 'ERROR']
+    )
     
     sensor_fusion = Node(
         package='sensor_fusion',
@@ -110,5 +116,6 @@ def generate_launch_description():
         # sensor_fusion,
         v4l2_camera_node,
         # colors_detection_node,
-        movement_detection_node
+        # movement_detection_node
+        obstacle_detection_node
     ])
