@@ -12,15 +12,12 @@
 #include <chrono>
 #include <string>
 #include <ament_index_cpp/get_package_share_directory.hpp>
+
 class ObstacleDetectionNode : public rclcpp::Node
 {
 public:
-    ObstacleDetectionNode() : Node("obstacle_detection_node")
+    ObstacleDetectionNode() : Node("obstacle_detection_node"), processing_(false)
     {
-
-        // this->declare_parameter<double>("turn_speed", 0.5);
-        // this->declare_parameter<int>("min_contour_area", 500);
-        
         std::string package_share_dir;
         try {
             package_share_dir = ament_index_cpp::get_package_share_directory("camera");
@@ -28,6 +25,7 @@ public:
             RCLCPP_ERROR(this->get_logger(), "Failed to get package directory: %s", e.what());
             return;
         }
+        
         this->declare_parameter("model_cfg", 
             package_share_dir + "/models/yolov3-tiny.cfg");
         this->declare_parameter("model_weights", 
@@ -77,24 +75,69 @@ public:
             return;
         }
         
-        
         RCLCPP_INFO(this->get_logger(), "YOLO detector node initialized");
     }
+    
+    // Destructor for clean shutdown
+    ~ObstacleDetectionNode()
+    {
+        RCLCPP_INFO(this->get_logger(), "Shutting down obstacle detection node...");
+        
+        // Wait for any processing to complete (max 2 seconds)
+        auto start = std::chrono::steady_clock::now();
+        while (processing_) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::steady_clock::now() - start);
+            if (elapsed.count() > 2) {
+                RCLCPP_WARN(this->get_logger(), "Forced shutdown - processing still active");
+                break;
+            }
+        }
+        
+        // Shutdown subscribers/publishers
+        if (image_subscriber_) {
+            image_subscriber_.shutdown();
+        }
+        if (image_publisher_) {
+            image_publisher_.shutdown();
+        }
+        
+        RCLCPP_INFO(this->get_logger(), "Shutdown complete");
+    }
+    
     void initialize()
     {
         // Initialize image transport AFTER the node is managed by shared_ptr
         it_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());
-                // Create subscription
-        image_subscriber_ = it_->subscribe("/camera/image_raw", 1, std::bind(&ObstacleDetectionNode::imageCallback, this, std::placeholders::_1));
+        
+        // Create subscription
+        image_subscriber_ = it_->subscribe("/camera/image_raw", 1, 
+            std::bind(&ObstacleDetectionNode::imageCallback, this, std::placeholders::_1));
             
         // Create publisher for detected image
+        image_publisher_ = it_->advertise("/camera/detected_image", 1);  // Queue size 1, not 10
         
-       image_publisher_ = it_->advertise("/camera/detected_image", 10);
+        RCLCPP_INFO(this->get_logger(), "Subscriptions and publishers initialized");
     }
 
 private:
     void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr msg)
     {
+        RCLCPP_INFO(this->get_logger(), "imageCallback is running");
+        // Check if node is shutting down
+        if (!rclcpp::ok()) {
+            return;
+        }
+        
+        // Skip if already processing (drop frames if too slow)
+        if (processing_) {
+            RCLCPP_WARN_THROTTLE(this->get_logger(), *this->get_clock(), 1000,
+                                "Dropping frame - still processing previous frame");
+            return;
+        }
+        
+        processing_ = true;
         auto start = std::chrono::high_resolution_clock::now();
         
         // Convert ROS image to OpenCV
@@ -103,6 +146,13 @@ private:
             cv_ptr = cv_bridge::toCvCopy(msg, sensor_msgs::image_encodings::BGR8);
         } catch (cv_bridge::Exception& e) {
             RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+            processing_ = false;
+            return;
+        }
+        
+        // Check again before heavy processing
+        if (!rclcpp::ok()) {
+            processing_ = false;
             return;
         }
         
@@ -116,22 +166,32 @@ private:
         
         // Set input to network
         net_.setInput(blob);
-        
-        // Forward pass
+        RCLCPP_INFO(this->get_logger(), "Running forward pass");
+        // Forward pass (this is the slow part)
+        RCLCPP_INFO(this->get_logger(), "Finished forward pass");
         std::vector<cv::Mat> outs;
         net_.forward(outs, output_names_);
         
+        // Check if we should still publish
+        if (!rclcpp::ok()) {
+            processing_ = false;
+            return;
+        }
+        
         // Post-process detections
         postprocess(frame, outs);
-        
+        RCLCPP_INFO(this->get_logger(), "Publishing");
         // Publish result
-        sensor_msgs::msg::Image::SharedPtr processed_msg = cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
+        sensor_msgs::msg::Image::SharedPtr processed_msg = 
+            cv_bridge::CvImage(msg->header, "bgr8", frame).toImageMsg();
         image_publisher_.publish(processed_msg);
         
         auto end = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
         RCLCPP_INFO_THROTTLE(this->get_logger(), *this->get_clock(), 1000, 
                             "Processing time: %ld ms", duration.count());
+        
+        processing_ = false;
     }
     
     void postprocess(cv::Mat& frame, const std::vector<cv::Mat>& outs)
@@ -209,16 +269,31 @@ private:
     std::shared_ptr<image_transport::ImageTransport> it_;
     image_transport::Subscriber image_subscriber_;
     image_transport::Publisher image_publisher_;
+    std::atomic<bool> processing_;  // Track if currently processing
 };
 
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
-    auto node = std::make_shared<ObstacleDetectionNode>();
     
-    // Initialize the node after it's managed by shared_ptr
+    auto node = std::make_shared<ObstacleDetectionNode>();
     node->initialize();
-    rclcpp::spin(std::make_shared<ObstacleDetectionNode>());
+    
+    // Use executor with better shutdown handling
+    rclcpp::executors::SingleThreadedExecutor executor;
+    executor.add_node(node);
+    
+    // Spin with periodic checks for shutdown
+    while (rclcpp::ok()) {
+        executor.spin_some(std::chrono::milliseconds(100));
+    }
+    
+    RCLCPP_INFO(node->get_logger(), "Received shutdown signal, cleaning up...");
+    
+    // Clean shutdown
+    executor.remove_node(node);
+    node.reset();
+    
     rclcpp::shutdown();
     return 0;
 }
