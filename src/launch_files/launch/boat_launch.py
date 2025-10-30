@@ -99,6 +99,12 @@ def generate_launch_description():
     obstacle_detection_node = Node(
         package='camera',
         executable='obstacle_detection_node',
+        parameters=[
+            {
+                'resize_height':480,
+                'resize_width':640
+            }
+        ]
         # arguments=['--ros-args', '--log-level', 'ERROR']
     )
     
