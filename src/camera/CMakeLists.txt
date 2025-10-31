@@ -17,6 +17,16 @@ find_package(OpenCV REQUIRED)
 # C++ library for finding package resources at runtime
 find_package(ament_index_cpp REQUIRED)
 #Create an executable called yolo_detector_node and compile yolo_detector_node.cpp into that executable, does not isntall it yet, just compiles in build directory 
+add_executable(yolo_node src/yolo_node.cpp)
+ament_target_dependencies(yolo_node
+  rclcpp
+  sensor_msgs
+  cv_bridge
+  OpenCV
+  image_transport
+  geometry_msgs
+  ament_index_cpp
+)
 add_executable(obstacle_detection_node src/obstacle_detection_node.cpp)
 ament_target_dependencies(obstacle_detection_node
   rclcpp
@@ -25,7 +35,6 @@ ament_target_dependencies(obstacle_detection_node
   OpenCV
   image_transport
   geometry_msgs
-  ament_index_cpp
 )
 # Add executable
 add_executable(colors_detection_node src/colors_detection_node.cpp)
@@ -71,6 +80,7 @@ install(TARGETS
   colors_detection_node
   movement_detection_node
   obstacle_detection_node
+  yolo_node
   DESTINATION lib/${PROJECT_NAME}
 )
 

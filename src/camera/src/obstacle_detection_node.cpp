@@ -11,7 +11,6 @@
 #include <opencv2/imgproc.hpp>
 #include <chrono>
 #include <string>
-#include <ament_index_cpp/get_package_share_directory.hpp>
 
 class ObstacleDetectionNode : public rclcpp::Node
 {
@@ -49,17 +48,19 @@ private:
             return;
         }
         cv::Mat frame = cv_ptr->image;
-        cv::Mat grayscale;
+        cv::Mat grayscale, dilated, threshold_img;
         if (resize_height_ != 480 && resize_width_ != 640){
             cv::resize(frame, frame, cv::Size(resize_height_, resize_width_));
         } 
-
+        
         cv::cvtColor(frame, grayscale, cv::COLOR_BGR2GRAY);
+        cv::threshold(grayscale, threshold_img, 80, 255, cv::THRESH_BINARY);
+        cv::dilate(threshold_img, dilated, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), cv::Point(-1, -1), 1);
         
             
         std::vector<std::vector<cv::Point>> contours_;
         //findContours can only take in single channel
-        cv::findContours(grayscale, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        cv::findContours(dilated, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         
         //Convert image from ROS to OpenCV
         //resize image

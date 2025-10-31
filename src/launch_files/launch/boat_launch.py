@@ -107,6 +107,11 @@ def generate_launch_description():
         ]
         # arguments=['--ros-args', '--log-level', 'ERROR']
     )
+    yolo_node = Node(
+        package='camera',
+        executable='yolo_node',
+        arguments=['--ros-args', '--log-level', 'ERROR']
+    )
     
     sensor_fusion = Node(
         package='sensor_fusion',
@@ -124,4 +129,5 @@ def generate_launch_description():
         # colors_detection_node,
         # movement_detection_node
         obstacle_detection_node
+        #yolo_node
     ])
