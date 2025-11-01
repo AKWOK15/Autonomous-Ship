@@ -48,7 +48,7 @@ private:
             return;
         }
         cv::Mat frame = cv_ptr->image;
-        cv::Mat grayscale, dilated, threshold;
+        cv::Mat grayscale, dilated, threshold, threshold_tozero_inv;
         if (resize_height_ != 480 && resize_width_ != 640){
             cv::resize(frame, frame, cv::Size(resize_height_, resize_width_));
         } 
@@ -56,12 +56,14 @@ private:
         cv::cvtColor(frame, grayscale, cv::COLOR_BGR2GRAY);
         //If in grayscale, object are brighter than background, use THRESH_BINARY, if objects are darker than backgroun, use THRESH_BINARY_INV
         cv::threshold(grayscale, threshold, 80, 255, cv::THRESH_BINARY_INV);
+        cv::threshold(grayscale, threshold_tozero_inv, 80, 255, cv::THRESH_TOZERO_INV);
         cv::dilate(threshold, dilated, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), cv::Point(-1, -1), 1);
         
             
         std::vector<std::vector<cv::Point>> contours_;
         //findContours can only take in single channel
         //find contours is like finding white object from black background 
+        //Use RETR_EXTERNAL since I don't want any children
         cv::findContours(dilated, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
         std::string file_path = __FILE__;  
 
@@ -71,6 +73,9 @@ private:
         if (pos != std::string::npos) {
             data_path = file_path.substr(0, pos) + "/data";
             RCLCPP_INFO(this->get_logger(), "Data path: %s", data_path.c_str());
+            cv::imwrite(data_path + "/frame.png", frame);
+            cv::imwrite(data_path + "/grayscale.png", grayscale);
+            cv::imwrite(data_path + "/threshold_tozero_inv.png", threshold_tozero_inv);
         }
         
         for (int i = 20; i < 80; i = i + 10) {
@@ -81,9 +86,17 @@ private:
             cv::imwrite(data_path + "/threshold" + std::to_string(i) + ".png", threshold);
             cv::imwrite(data_path + "/contours" + std::to_string(i) + ".png", frame);
         }
+        for (int i = 20; i < 80; i = i + 10) {
+            cv::threshold(grayscale, threshold_tozero_inv, i, 255, cv::THRESH_TOZERO_INV);
+            cv::dilate(threshold_tozero_inv, dilated, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), cv::Point(-1, -1), 1);
+            cv::findContours(dilated, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+            drawContours(msg, contours_, frame);
+            cv::imwrite(data_path + "/threshold_tozero_inv" + std::to_string(i) + ".png", threshold);
+            cv::imwrite(data_path + "/contours_tozero_inv" + std::to_string(i) + ".png", frame);
+        }
     }
     void drawContours(const sensor_msgs::msg::Image::ConstSharedPtr& msg, std::vector<std::vector<cv::Point>> contours, cv::Mat image){
-        double min_area = 50;
+        double min_area = 200;
         cv::Point centroid(-1, -1);
         for (size_t i = 0; i < contours.size(); i++){
             double area = cv::contourArea(contours[i]);
