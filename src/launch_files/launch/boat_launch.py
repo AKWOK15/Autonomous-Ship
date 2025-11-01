@@ -51,7 +51,6 @@ def generate_launch_description():
                 'image_height': LaunchConfiguration('camera_height'),
                 'pixel_format': 'YUYV',
                 'camera_frame_id': 'camera_link',
-                'fps': 20.0,
                 
                 # === BALANCED PARAMETERS FOR BLACK OBJECT DETECTION ===
                 
@@ -71,6 +70,13 @@ def generate_launch_description():
             ('/image_raw', '/camera/image_raw'),
             ('/camera_info', '/camera/camera_info')
         ],
+    )
+    # throttle fps to 1.0
+    throttle_node = Node(
+        package='topic_tools',
+        executable='throttle',
+        name='camera_throttle',
+        arguments=['messages', '/camera/image_raw', '1.0', '/camera/image_raw/throttled']
     )
     
     colors_detection_node = Node(
@@ -105,7 +111,7 @@ def generate_launch_description():
                 'resize_width':640
             }
         ],
-        arguments=['--ros-args', '--log-level', 'ERROR']
+        #arguments=['--ros-args', '--log-level', 'ERROR']
     )
     yolo_node = Node(
         package='camera',
@@ -123,6 +129,7 @@ def generate_launch_description():
         camera_device_arg,
         camera_width_arg, 
         camera_height_arg,
+        throttle_node,
         # ultrasonic_sensor_node,
         # sensor_fusion,
         v4l2_camera_node,

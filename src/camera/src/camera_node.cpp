@@ -15,7 +15,7 @@ public:
         this->declare_parameter<int>("camera_id", 0);
         this->declare_parameter<int>("width", 640);
         this->declare_parameter<int>("height", 480);
-        this->declare_parameter<int>("fps", 30);
+
         this->declare_parameter<std::string>("frame_id", "camera_frame");
         
         RCLCPP_INFO(this->get_logger(), "Camera Node Created");
@@ -27,7 +27,6 @@ public:
         int camera_id = this->get_parameter("camera_id").as_int();
         int width = this->get_parameter("width").as_int();
         int height = this->get_parameter("height").as_int();
-        int fps = this->get_parameter("fps").as_int();
         frame_id_ = this->get_parameter("frame_id").as_string();
         
         // Initialize camera
@@ -46,7 +45,6 @@ public:
         
         RCLCPP_INFO(this->get_logger(), "Camera opened successfully");
         RCLCPP_INFO(this->get_logger(), "Resolution: %dx%d", width, height);
-        RCLCPP_INFO(this->get_logger(), "FPS: %d", fps);
         
         // Initialize image transport - NOW it's safe to use shared_from_this()
         it_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());

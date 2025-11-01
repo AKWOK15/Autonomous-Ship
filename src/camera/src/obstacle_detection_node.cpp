@@ -29,7 +29,7 @@ public:
         //Pass shared_from_this into image_transport so it can use the node pointer internally for callbacks and ROS operations 
         //<> specifies type of the things in (), for example std::shared_ptr<int> foo = std::make_shared<int> (10); is the same as std::shared_ptr<int> foo2 (new int(10));
         it_ = std::make_shared<image_transport::ImageTransport>(shared_from_this());
-        image_subscriber_ = it_->subscribe("/camera/image_raw", 1, 
+        image_subscriber_ = it_->subscribe("/camera/image_raw/throttled", 1, 
             std::bind(&ObstacleDetectionNode::imageCallback, this, std::placeholders::_1));
             
         // Create publisher for detected image
@@ -38,6 +38,7 @@ public:
     }
 private:
     void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg){
+        RCLCPP_INFO(this->get_logger(), "Running");
         //cv_brdige converts between ROS image and OpenCV messages
         cv_bridge::CvImagePtr cv_ptr;
         try {
@@ -47,6 +48,7 @@ private:
             RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
             return;
         }
+    
         cv::Mat frame = cv_ptr->image;
         cv::Mat grayscale, blur, edges, dilated;
         std::vector<std::vector<cv::Point>> contours;
@@ -217,9 +219,9 @@ private:
                     updated_boxes.push_back(smoothed_box);
                     plotCentroidRectangle(image, smoothed_box);
                     
-                    RCLCPP_INFO(this->get_logger(), 
-                               "Matched box %zu with previous box %d (IoU: %.3f)", 
-                               i, best_match_idx, best_iou);
+                    // RCLCPP_INFO(this->get_logger(), 
+                    //            "Matched box %zu with previous box %d (IoU: %.3f)", 
+                    //            i, best_match_idx, best_iou);
                 } 
                 else {
                     // New detection - no matching previous box
@@ -254,15 +256,9 @@ private:
         cv:: Rect intersection = box1&box2;
         //Union considerers both box areas since each box may have a different % interesection with other box
         float inter_area = intersection.area();
-        RCLCPP_INFO(this->get_logger(), "Inter_area: %f", inter_area);
+        // RCLCPP_INFO(this->get_logger(), "Inter_area: %f", inter_area);
 
         float union_area = box1.area() + box2.area() - inter_area;
-        if (inter_area > 1.0){
-            RCLCPP_INFO(this->get_logger(), "Inter_area: %f", inter_area);
-            RCLCPP_INFO(this->get_logger(), "Union_area: %f", union_area);
-            RCLCPP_INFO(this->get_logger(), "IOC: %f", inter_area / union_area);
-
-        }
         
         return union_area > 0 ? inter_area / union_area : 0.0;
     }
