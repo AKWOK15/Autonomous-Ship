@@ -15,7 +15,7 @@ class RecordVideo(Node):
         #Set arameters during runtime wihtout code changes
         self.declare_parameter('output_dir', '~/boat/data')
         self.declare_parameter('num_frames', 200)
-        self.declare_parameter('video_name', 'video.mp4')
+        self.declare_parameter('video_name', 'video_detected_image.mp4')
         
         # Get parameters
         output_dir = os.path.expanduser(
@@ -23,10 +23,17 @@ class RecordVideo(Node):
         )
         self.num_frames = self.get_parameter('num_frames').value
         video_name = self.get_parameter('video_name').value
-        
-        # Create output directory
-        os.makedirs(output_dir, exist_ok=True)
         video_path = os.path.join(output_dir, video_name)
+        os.makedirs(output_dir, exist_ok=True)
+        # Create output directory
+        if os.path.exists(video_path):
+            try: 
+                os.remove(video_path)
+                print("File deleted")
+            except OSError as e:
+                print(f"Error deleting file: {e}")
+    
+        
         
         self.bridge = CvBridge()
         self.cur_frame = 0
@@ -43,7 +50,7 @@ class RecordVideo(Node):
         
         self.subscription = self.create_subscription(
             Image,
-            '/camera/image_raw',
+            '/camera/detected_image',
             self.record_video,
             10
         )

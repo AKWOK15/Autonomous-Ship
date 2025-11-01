@@ -104,8 +104,8 @@ def generate_launch_description():
                 'resize_height':480,
                 'resize_width':640
             }
-        ]
-        # arguments=['--ros-args', '--log-level', 'ERROR']
+        ],
+        arguments=['--ros-args', '--log-level', 'ERROR']
     )
     yolo_node = Node(
         package='camera',
