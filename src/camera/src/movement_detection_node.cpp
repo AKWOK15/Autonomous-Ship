@@ -22,8 +22,8 @@ public:
     {
         // Declare parameters for video recording
         this->declare_parameter<std::string>("output_dir", "/home/aidankwok/boat/data/threshold_tests/");
-        this->declare_parameter<int>("max_frames", 200);
-        this->declare_parameter<bool>("enable_recording", true);
+        this->declare_parameter<int>("max_frames", 400);
+        this->declare_parameter<bool>("enable_recording", false);
         
         RCLCPP_INFO(this->get_logger(), "Movement Detection Node Started");
     }
@@ -73,11 +73,14 @@ public:
 private:
     // Video recording variables
     std::map<int, cv::VideoWriter> video_writers_;
-    std::vector<int> thresholds_ = {70, 80, 90, 100, 110, 120, 130};
+    std::vector<int> thresholds_ = {60, 80, 100, 120, 140, 160, 180};
     int frame_count_ = 0;
     int max_frames_;
     std::string output_dir_;
     bool recording_enabled_ = false;
+    cv::Point2f smoothed_centroid_{-1, -1};
+    float smoothing_factor_ = 0.3f;  // Lower = smoother but slower response (0.1-0.5)
+    bool first_detection_ = true;
     
     void initialize_video_writers() {
         output_dir_ = this->get_parameter("output_dir").as_string();
@@ -142,48 +145,20 @@ private:
         // If recording is enabled, process and save each threshold
         if (recording_enabled_ && frame_count_ < max_frames_) {
             for (int threshold_value : thresholds_) {
-                cv::Mat threshold_img, dilated;
+                cv::Mat threshold_img, dilated, threshold_bgr;
                 
                 // Apply threshold
-                cv::threshold(foreground_mask, threshold_img, 
-                             threshold_value, 255, cv::THRESH_BINARY);
-                
-                // Dilate
+                cv::threshold(foreground_mask, threshold_img, threshold_value, 255, cv::THRESH_BINARY);
+                // After dilation, add closing to fill gaps
                 cv::dilate(threshold_img, dilated, 
-                          cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), 
-                          cv::Point(-1, -1), 1);
+                        cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), 
+                        cv::Point(-1, -1), 1);
+                cv::morphologyEx(dilated, dilated, cv::MORPH_CLOSE, 
+                                cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
                 
-                // Find contours
-                std::vector<std::vector<cv::Point>> contours;
-                cv::findContours(dilated, contours, cv::RETR_EXTERNAL, 
-                               cv::CHAIN_APPROX_SIMPLE);
-                
-                // Create visualization image
-                cv::Mat visualization;
-                cv::resize(resized_image, visualization, cv::Size(320, 240));
-                
-                // Draw all contours
-                int largest_contour_index = -1;
-                double max_area = 0;
-                double min_area = 50;
-                for (size_t i = 0; i < contours.size(); i++)
-                {
-                    double area = cv::contourArea(contours[i]);
-                    if (area > max_area && area > min_area)
-                    {
-                        max_area = area;
-                        largest_contour_index = i;
-                    }
-                }
-        
-            // Process the largest contour if found
-            if (largest_contour_index >= 0){
-                cv::Rect bounding_box = cv::boundingRect(contours[largest_contour_index]);
-                cv::rectangle(visualization, bounding_box, cv::Scalar(255, 255, 0), 2);
-            }
-                
-                // Add text overlay showing threshold and frame count
-                cv::putText(visualization, 
+                cv::cvtColor(dilated, threshold_bgr, cv::COLOR_GRAY2BGR);
+
+                cv::putText(threshold_bgr, 
                            "Threshold: " + std::to_string(threshold_value),
                            cv::Point(10, 30), 
                            cv::FONT_HERSHEY_SIMPLEX, 
@@ -191,7 +166,7 @@ private:
                            cv::Scalar(0, 255, 255), 
                            2);
                 
-                cv::putText(visualization, 
+                cv::putText(threshold_bgr, 
                            "Frame: " + std::to_string(frame_count_ + 1) + "/" + std::to_string(max_frames_),
                            cv::Point(10, 60), 
                            cv::FONT_HERSHEY_SIMPLEX, 
@@ -199,17 +174,70 @@ private:
                            cv::Scalar(0, 255, 255), 
                            2);
                 
-                cv::putText(visualization, 
-                           "Contours: " + std::to_string(contours.size()),
-                           cv::Point(10, 90), 
-                           cv::FONT_HERSHEY_SIMPLEX, 
-                           0.8, 
-                           cv::Scalar(0, 255, 255), 
-                           2);
+                
+                
+            //     // Dilate
+            //     cv::dilate(threshold_img, dilated, 
+            //               cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), 
+            //               cv::Point(-1, -1), 1);
+                
+            //     // Find contours
+            //     std::vector<std::vector<cv::Point>> contours;
+            //     cv::findContours(dilated, contours, cv::RETR_EXTERNAL, 
+            //                    cv::CHAIN_APPROX_SIMPLE);
+                
+            //     // Create visualization image
+            //     cv::Mat visualization;
+            //     cv::resize(resized_image, visualization, cv::Size(320, 240));
+                
+            //     // Draw all contours
+            //     int largest_contour_index = -1;
+            //     double max_area = 0;
+            //     double min_area = 50;
+            //     for (size_t i = 0; i < contours.size(); i++)
+            //     {
+            //         double area = cv::contourArea(contours[i]);
+            //         if (area > max_area && area > min_area)
+            //         {
+            //             max_area = area;
+            //             largest_contour_index = i;
+            //         }
+            //     }
+        
+            // // Process the largest contour if found
+            // if (largest_contour_index >= 0){
+            //     cv::Rect bounding_box = cv::boundingRect(contours[largest_contour_index]);
+            //     cv::rectangle(visualization, bounding_box, cv::Scalar(255, 255, 0), 2);
+            // }
+                
+                // Add text overlay showing threshold and frame count
+                // cv::putText(visualization, 
+                //            "Threshold: " + std::to_string(threshold_value),
+                //            cv::Point(10, 30), 
+                //            cv::FONT_HERSHEY_SIMPLEX, 
+                //            0.8, 
+                //            cv::Scalar(0, 255, 255), 
+                //            2);
+                
+                // cv::putText(visualization, 
+                //            "Frame: " + std::to_string(frame_count_ + 1) + "/" + std::to_string(max_frames_),
+                //            cv::Point(10, 60), 
+                //            cv::FONT_HERSHEY_SIMPLEX, 
+                //            0.8, 
+                //            cv::Scalar(0, 255, 255), 
+                //            2);
+                
+                // cv::putText(visualization, 
+                //            "Contours: " + std::to_string(contours.size()),
+                //            cv::Point(10, 90), 
+                //            cv::FONT_HERSHEY_SIMPLEX, 
+                //            0.8, 
+                //            cv::Scalar(0, 255, 255), 
+                //            2);
                 
                 // Write frame to video
                 if (video_writers_[threshold_value].isOpened()) {
-                    video_writers_[threshold_value].write(visualization);
+                    video_writers_[threshold_value].write(threshold_bgr);
                 }
             }
             
@@ -230,12 +258,14 @@ private:
             }
         }
         
-        // Continue with normal processing using default threshold (80)
+       
         cv::Mat threshold_img, dilated;
-        cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
+        cv::threshold(foreground_mask, threshold_img, 180, 255, cv::THRESH_BINARY);
         cv::dilate(threshold_img, dilated, 
                   cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), 
                   cv::Point(-1, -1), 1);
+        cv::morphologyEx(dilated, dilated, cv::MORPH_CLOSE, 
+                                cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(5, 5)));
         
         std::vector<std::vector<cv::Point>> contours;
         cv::findContours(dilated, contours, cv::RETR_EXTERNAL, 
@@ -318,8 +348,24 @@ private:
                 // Calculate centroid
                 cv::Moments moments = cv::moments(contours[largest_contour_index]);
                 if (moments.m00 != 0) {
-                    centroid.x = static_cast<int>(moments.m10 / moments.m00);
-                    centroid.y = static_cast<int>(moments.m01 / moments.m00);
+                    cv::Point2f current_centroid;
+                    current_centroid.x = static_cast<float>(moments.m10 / moments.m00);
+                    current_centroid.y = static_cast<float>(moments.m01 / moments.m00);
+                    
+                    // Apply exponential moving average
+                    if (first_detection_ || smoothed_centroid_.x < 0) {
+                        smoothed_centroid_ = current_centroid;
+                        first_detection_ = false;
+                    } else {
+                        smoothed_centroid_.x = smoothing_factor_ * current_centroid.x + 
+                                            (1 - smoothing_factor_) * smoothed_centroid_.x;
+                        smoothed_centroid_.y = smoothing_factor_ * current_centroid.y + 
+                                            (1 - smoothing_factor_) * smoothed_centroid_.y;
+                    }
+                    
+                    // Use smoothed_centroid for servo control
+                    centroid.x = static_cast<int>(smoothed_centroid_.x);
+                    centroid.y = static_cast<int>(smoothed_centroid_.y);
                     
                 } else {
                     RCLCPP_WARN(this->get_logger(), "Invalid moments (m00 = 0)");
