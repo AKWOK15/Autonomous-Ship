@@ -12,18 +12,20 @@
 #include <opencv2/imgproc.hpp>
 #include <chrono>
 #include <string>
+#include <map>
+#include <filesystem>
 
 class MovementDetectionNode : public rclcpp::Node
 {
 public:
     MovementDetectionNode() : Node("movement_detection_node")
     {
-
-        // this->declare_parameter<double>("turn_speed", 0.5);
-        // this->declare_parameter<int>("min_contour_area", 500);
+        // Declare parameters for video recording
+        this->declare_parameter<std::string>("output_dir", "/home/aidankwok/boat/data/threshold_tests/");
+        this->declare_parameter<int>("max_frames", 200);
+        this->declare_parameter<bool>("enable_recording", true);
         
         RCLCPP_INFO(this->get_logger(), "Movement Detection Node Started");
-
     }
     
     // Initialize subscriptions and publishers after the node is fully constructed
@@ -46,8 +48,6 @@ public:
         KNN_subtractor = cv::createBackgroundSubtractorKNN(true);
 
         // Create MOG2 background subtractor
-        //(int history = 100, double varThreshold = 16, bool detectShadows = true
-        //
         new_bg_subtractor = cv::createBackgroundSubtractorMOG2(50,16,true);
         old_bg_subtractor = cv::createBackgroundSubtractorMOG2(50,16,true);
         RCLCPP_INFO(this->get_logger(), "Movement Node Initialized");
@@ -58,73 +58,207 @@ public:
         foreground_mask_ = cv::Mat(120, 160, CV_8UC1);
         threshold_img_ = cv::Mat(120, 160, CV_8UC1);
         dilated_ = cv::Mat(120, 160, CV_8UC1);
+        
+        // Initialize video recording if enabled
+        if (this->get_parameter("enable_recording").as_bool()) {
+            initialize_video_writers();
+        }
     }
-//std::pair return type since returning two different types 
+    
+    ~MovementDetectionNode()
+    {
+        release_video_writers();
+    }
+
 private:
-    std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
+    // Video recording variables
+    std::map<int, cv::VideoWriter> video_writers_;
+    std::vector<int> thresholds_ = {70, 80, 90, 100, 110, 120, 130};
+    int frame_count_ = 0;
+    int max_frames_;
+    std::string output_dir_;
+    bool recording_enabled_ = false;
+    
+    void initialize_video_writers() {
+        output_dir_ = this->get_parameter("output_dir").as_string();
+        max_frames_ = this->get_parameter("max_frames").as_int();
+        
+    
+        
+        for (int threshold : thresholds_) {
+            std::string filename = output_dir_ + "threshold_" + 
+                                  std::to_string(threshold) + ".mp4";
+            
+            // Delete existing file if present
+            if (std::filesystem::exists(filename)) {
+                std::filesystem::remove(filename);
+                RCLCPP_INFO(this->get_logger(), "Deleted existing file: %s", filename.c_str());
+            }
+            
+            cv::VideoWriter writer(filename, 
+                                  cv::VideoWriter::fourcc('m', 'p', '4', 'v'),
+                                  20.0, 
+                                  cv::Size(320, 240));
+            
+            if (writer.isOpened()) {
+                video_writers_[threshold] = std::move(writer);
+                RCLCPP_INFO(this->get_logger(), 
+                           "Initialized writer for threshold %d at %s", 
+                           threshold, filename.c_str());
+            } else {
+                RCLCPP_ERROR(this->get_logger(), 
+                            "Failed to initialize writer for threshold %d", threshold);
+            }
+        }
+        
+        recording_enabled_ = true;
+        RCLCPP_INFO(this->get_logger(), "Video recording initialized. Will record %d frames.", max_frames_);
+    }
+    
+    void release_video_writers() {
+        for (auto& [threshold, writer] : video_writers_) {
+            if (writer.isOpened()) {
+                writer.release();
+                RCLCPP_INFO(this->get_logger(), 
+                           "Released writer for threshold %d", threshold);
+            }
+        }
+        video_writers_.clear();
+        recording_enabled_ = false;
+    }
+
+    std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(
+        const cv::Mat frame, 
+        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_)
+    {
         auto start_time = std::chrono::high_resolution_clock::now();
         cv::Mat resized_image;
-        cv::resize(frame, resized_image, cv::Size(160, 120));
-        cv::Mat foreground_mask, threshold_img, dilated;
-        //bg_subtractor is background subtraction, results in foreground_mask
+        cv::resize(frame, resized_image, cv::Size(320, 240));
+        cv::Mat foreground_mask;
+        
+        // Apply background subtraction
         new_bg_subtractor->apply(resized_image, foreground_mask, -1);
-        // Apply threshold to create a binary image, sepearate moving pixels from white pixels 
+        
+        // If recording is enabled, process and save each threshold
+        if (recording_enabled_ && frame_count_ < max_frames_) {
+            for (int threshold_value : thresholds_) {
+                cv::Mat threshold_img, dilated;
+                
+                // Apply threshold
+                cv::threshold(foreground_mask, threshold_img, 
+                             threshold_value, 255, cv::THRESH_BINARY);
+                
+                // Dilate
+                cv::dilate(threshold_img, dilated, 
+                          cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), 
+                          cv::Point(-1, -1), 1);
+                
+                // Find contours
+                std::vector<std::vector<cv::Point>> contours;
+                cv::findContours(dilated, contours, cv::RETR_EXTERNAL, 
+                               cv::CHAIN_APPROX_SIMPLE);
+                
+                // Create visualization image
+                cv::Mat visualization;
+                cv::resize(resized_image, visualization, cv::Size(320, 240));
+                
+                // Draw all contours
+                int largest_contour_index = -1;
+                double max_area = 0;
+                double min_area = 50;
+                for (size_t i = 0; i < contours.size(); i++)
+                {
+                    double area = cv::contourArea(contours[i]);
+                    if (area > max_area && area > min_area)
+                    {
+                        max_area = area;
+                        largest_contour_index = i;
+                    }
+                }
+        
+            // Process the largest contour if found
+            if (largest_contour_index >= 0){
+                cv::Rect bounding_box = cv::boundingRect(contours[largest_contour_index]);
+                cv::rectangle(visualization, bounding_box, cv::Scalar(255, 255, 0), 2);
+            }
+                
+                // Add text overlay showing threshold and frame count
+                cv::putText(visualization, 
+                           "Threshold: " + std::to_string(threshold_value),
+                           cv::Point(10, 30), 
+                           cv::FONT_HERSHEY_SIMPLEX, 
+                           0.8, 
+                           cv::Scalar(0, 255, 255), 
+                           2);
+                
+                cv::putText(visualization, 
+                           "Frame: " + std::to_string(frame_count_ + 1) + "/" + std::to_string(max_frames_),
+                           cv::Point(10, 60), 
+                           cv::FONT_HERSHEY_SIMPLEX, 
+                           0.8, 
+                           cv::Scalar(0, 255, 255), 
+                           2);
+                
+                cv::putText(visualization, 
+                           "Contours: " + std::to_string(contours.size()),
+                           cv::Point(10, 90), 
+                           cv::FONT_HERSHEY_SIMPLEX, 
+                           0.8, 
+                           cv::Scalar(0, 255, 255), 
+                           2);
+                
+                // Write frame to video
+                if (video_writers_[threshold_value].isOpened()) {
+                    video_writers_[threshold_value].write(visualization);
+                }
+            }
+            
+            frame_count_++;
+            
+            // Log progress every 20 frames
+            if (frame_count_ % 20 == 0) {
+                RCLCPP_INFO(this->get_logger(), 
+                           "Recording progress: %d/%d frames", 
+                           frame_count_, max_frames_);
+            }
+            
+            // Stop recording when done
+            if (frame_count_ >= max_frames_) {
+                release_video_writers();
+                RCLCPP_INFO(this->get_logger(), "Recording complete! Saved %d frames for %zu thresholds.", 
+                           max_frames_, thresholds_.size());
+            }
+        }
+        
+        // Continue with normal processing using default threshold (80)
+        cv::Mat threshold_img, dilated;
         cv::threshold(foreground_mask, threshold_img, 80, 255, cv::THRESH_BINARY);
-
-        // Dilate the threshold image to thicken the regions of interest
-        cv::dilate(threshold_img, dilated, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), cv::Point(-1, -1), 1);
-
-        // Find contours in the dilated image
+        cv::dilate(threshold_img, dilated, 
+                  cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(3, 3)), 
+                  cv::Point(-1, -1), 1);
+        
         std::vector<std::vector<cv::Point>> contours;
-        cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+        cv::findContours(dilated, contours, cv::RETR_EXTERNAL, 
+                       cv::CHAIN_APPROX_SIMPLE);
+        
         auto end_time = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+        
         auto processing_time_msg = std_msgs::msg::Float64MultiArray();
         processing_time_msg.data = {
-            static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(start_time.time_since_epoch()).count()),
-            static_cast<double>(duration.count())  // microseconds
+            static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(
+                start_time.time_since_epoch()).count()),
+            static_cast<double>(duration.count())
         };
-        // RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
+        
         publisher_->publish(processing_time_msg);
         return {resized_image, contours};
     }
-    // std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(
-    //     const cv::Mat& frame,  // Pass by const reference!
-    //     rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_)
-    // {
-    //     auto start_time = std::chrono::high_resolution_clock::now();
-        
-    //     // Resize into pre-allocated matrix
-    //     cv::resize(frame, resized_image_, cv::Size(160, 120), 0, 0, cv::INTER_LINEAR);
-        
-    //     // Apply background subtraction
-    //     new_bg_subtractor->apply(resized_image_, foreground_mask_, -1);
-        
-    //     // Threshold to binary
-    //     cv::threshold(foreground_mask_, threshold_img_, 80, 255, cv::THRESH_BINARY);
-        
-    //     // Dilate with pre-computed kernel
-    //     cv::dilate(threshold_img_, dilated_, kernel_, cv::Point(-1, -1), 1);
-        
-    //     // Find contours (reuse vector)
-    //     contours_.clear();
-    //     cv::findContours(dilated_, contours_, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
-        
-    //     auto end_time = std::chrono::high_resolution_clock::now();
-    //     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
-    //     auto processing_time_msg = std_msgs::msg::Float64MultiArray();
-    //     processing_time_msg.data = {
-    //         static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(start_time.time_since_epoch()).count()),
-    //         static_cast<double>(duration.count())  // microseconds
-    //     };
-    //     publisher_->publish(processing_time_msg);
-        
-    //     return {resized_image_, contours_};
-    // }
+
     std::vector<std::vector<cv::Point>> old_model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_){
         auto start_time = std::chrono::high_resolution_clock::now();;
         cv::Mat resized_image;
-        cv::resize(frame, resized_image, cv::Size(160, 120));
+        cv::resize(frame, resized_image, cv::Size(320, 120));
         cv::Mat foreground_mask, threshold_img, dilated;
         //bg_subtractor is background subtraction, results in foreground_mask
         old_bg_subtractor->apply(resized_image, foreground_mask, -1);
@@ -145,7 +279,6 @@ private:
             static_cast<double>(std::chrono::duration_cast<std::chrono::microseconds>(start_time.time_since_epoch()).count()),
             static_cast<double>(duration.count())  // microseconds
         };
-        // RCLCPP_INFO(this->get_logger(), "Processng time %ld", end_time-start_time);
         publisher_->publish(processing_time_msg);
         return contours;
     }
@@ -159,8 +292,6 @@ private:
             cv::Mat frame = cv_ptr->image;
             
             auto [resized_image, contours] = model(frame, pro_time_publisher_new_);
-            // cv::Mat resized_image, std::vector<std::vector<cv::Point>> contours
-            old_model(frame, pro_time_publisher_old_);
 
             // Draw bounding boxes for contours that exceed a certain area threshold
             double max_area = 0;
@@ -190,8 +321,6 @@ private:
                     centroid.x = static_cast<int>(moments.m10 / moments.m00);
                     centroid.y = static_cast<int>(moments.m01 / moments.m00);
                     
-                    RCLCPP_INFO(this->get_logger(), "Centroid: (%d, %d), Area: %.2f", 
-                                centroid.x, centroid.y, max_area);
                 } else {
                     RCLCPP_WARN(this->get_logger(), "Invalid moments (m00 = 0)");
                 }
@@ -209,8 +338,6 @@ private:
         }
     }
 
-
-
     void publishNavigationCommand(int object_x, int image_width)
     {
         geometry_msgs::msg::Twist cmd_vel;
@@ -225,8 +352,6 @@ private:
         {
             // Object detected - calculate turn direction
             int center_x = image_width / 2;
-            // error is positve if on object_x is on right side of camera window 
-            //negative if on left side of camera_window
             int error = object_x - center_x;
             
             // Proportional control for turning
@@ -237,47 +362,37 @@ private:
                 // Object is centered - move forward
                 cmd_vel.linear.x = 0.3;
                 cmd_vel.angular.z = 90;
-                // RCLCPP_INFO(this->get_logger(), "Moving forward - object centered");
             }
             else
             {
                 // Turn towards object
-                cmd_vel.linear.x = 0.1; // Slow forward movement while turning
-                // cmd_vel.angular.z = -error * turn_speed / center_x; // Proportional turn
+                cmd_vel.linear.x = 0.1;
                 cmd_vel.angular.z = object_x / 5.33;
-                
-                // if (error > 0)
-                // {
-                //     RCLCPP_INFO(this->get_logger(), "Turning right - object at x=%d", object_x);
-                // }
-                // else
-                // {
-                //     RCLCPP_INFO(this->get_logger(), "Turning left - object at x=%d", object_x);
-                // }
             }
         }
         
         twist_publisher_->publish(cmd_vel);
     }
-        cv::Mat resized_image_;
-        cv::Mat foreground_mask_;
-        cv::Mat threshold_img_;
-        cv::Mat dilated_;
-        cv::Mat kernel_;
-        std::vector<std::vector<cv::Point>> contours_;
-        std::shared_ptr<image_transport::ImageTransport> it_;
-        image_transport::Subscriber image_subscriber_;
-        image_transport::Publisher image_publisher_;
-        rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_publisher_;
-        rclcpp::Publisher<std_msgs::msg::String>::SharedPtr color_publisher_;
-        // Pubsliher is always a shared pointer 
-        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_old_;
-        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_new_;
-        cv::Ptr<cv::BackgroundSubtractor> new_bg_subtractor;
-        cv::Ptr<cv::BackgroundSubtractor> old_bg_subtractor;
-        cv::Ptr<cv::BackgroundSubtractor> MOG2_subtractor;
-        cv::Ptr<cv::BackgroundSubtractor> KNN_subtractor;
+
+    cv::Mat resized_image_;
+    cv::Mat foreground_mask_;
+    cv::Mat threshold_img_;
+    cv::Mat dilated_;
+    cv::Mat kernel_;
+    std::vector<std::vector<cv::Point>> contours_;
+    std::shared_ptr<image_transport::ImageTransport> it_;
+    image_transport::Subscriber image_subscriber_;
+    image_transport::Publisher image_publisher_;
+    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr twist_publisher_;
+    rclcpp::Publisher<std_msgs::msg::String>::SharedPtr color_publisher_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_old_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr pro_time_publisher_new_;
+    cv::Ptr<cv::BackgroundSubtractor> new_bg_subtractor;
+    cv::Ptr<cv::BackgroundSubtractor> old_bg_subtractor;
+    cv::Ptr<cv::BackgroundSubtractor> MOG2_subtractor;
+    cv::Ptr<cv::BackgroundSubtractor> KNN_subtractor;
 };
+
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);

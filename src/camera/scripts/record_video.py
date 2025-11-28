@@ -50,7 +50,7 @@ class RecordVideo(Node):
         
         self.subscription = self.create_subscription(
             Image,
-            '/camera/detected_image',
+            '/camera/processed_movement_image',
             self.record_video,
             10
         )

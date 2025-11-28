@@ -41,7 +41,6 @@ public:
         // Set camera properties
         cap_.set(cv::CAP_PROP_FRAME_WIDTH, width);
         cap_.set(cv::CAP_PROP_FRAME_HEIGHT, height);
-        cap_.set(cv::CAP_PROP_FPS, fps);
         
         RCLCPP_INFO(this->get_logger(), "Camera opened successfully");
         RCLCPP_INFO(this->get_logger(), "Resolution: %dx%d", width, height);
