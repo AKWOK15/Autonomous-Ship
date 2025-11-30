@@ -131,7 +131,7 @@ def generate_launch_description():
         camera_height_arg,
         throttle_node,
         # ultrasonic_sensor_node,
-        # sensor_fusion,
+        sensor_fusion,
         v4l2_camera_node,
         # colors_detection_node,
         movement_detection_node

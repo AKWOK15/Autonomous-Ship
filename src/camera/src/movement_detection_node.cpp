@@ -413,7 +413,7 @@ private:
             {
                 // Turn towards object
                 cmd_vel.linear.x = 0.1;
-                cmd_vel.angular.z = object_x / 5.33;
+                cmd_vel.angular.z = object_x / 2.1333;
             }
         }
         
