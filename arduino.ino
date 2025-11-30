@@ -6,7 +6,7 @@ const int SERVO_PIN = 8;
 const int TRIGGER_PIN = 9;
 const int ECHO_PIN = 10;
 // PWM Pin
-const int MOTOR_PIN = 3;
+const int PMW_PIN = 5;
 
 // Servo control variables
 Servo myservo;
@@ -24,6 +24,12 @@ unsigned long echo_end_time = 0;
 bool measurement_ready = false;
 bool echo_timeout = false;
 bool ultrasonic_measuring = false;
+
+//Motor PMW control variables
+bool motor_enabled = false;  // Motor stays off until first message received
+unsigned long last_motor_update = 0;
+const unsigned long MOTOR_UPDATE_INTERVAL = 2000;  
+int current_motor_speed = 0;
 
 // Measurement buffer for averaging
 const int BUFFER_SIZE = 5;
@@ -62,6 +68,7 @@ void loop() {
 
 // DEBUG VERSION: Show exactly what we receive
 void recvInfo() {
+    
     while (Serial.available() > 0) {
         char inChar = Serial.read();
         
@@ -70,8 +77,8 @@ void recvInfo() {
             if (receivedString.length() > 0) {
                 angleFloat = receivedString.toFloat();
                 
-                targetAngle = constrain((int)angleFloat, 0, 180);
-                
+                targetAngle = constrain((int)angleFloat, 30, 150);
+                motor_enabled = true;
                 newData = true;
                 receivedString = "";  // Clear for next message
                 
@@ -139,42 +146,46 @@ void processUltrasonicMeasurement() {
     }
 }
 
+
 void motorSpeed(){
-  int avgDistance = 0;
-  
-  // Calculate average distance
-  for (int x = 0; x < BUFFER_SIZE; x++){
-    avgDistance += distance_buffer[x];
+  if (!motor_enabled) {
+    analogWrite(PMW_PIN, 0);  // Keep motor off
+    return;
   }
-  avgDistance = avgDistance / BUFFER_SIZE;
+  unsigned long current_time = millis();
   
-  Serial.print("Distance: ");
-  Serial.print(avgDistance);
-  Serial.print(" cm, ");
-  
-  // Map distance to PWM value (0-255)
-  // Closer objects = slower motor, farther objects = faster motor
-  int motorSpeed;
-  
-  if (avgDistance <= 10) {
-    // Very close - motor off
-    motorSpeed = 0;
+  // Only update motor speed every 2 seconds
+  if (current_time - last_motor_update >= MOTOR_UPDATE_INTERVAL) {
+    int avgDistance = 0;
+    
+    // Calculate average distance
+    for (int x = 0; x < BUFFER_SIZE; x++){
+      avgDistance += distance_buffer[x];
+    }
+    avgDistance = avgDistance / BUFFER_SIZE;
+    
+    // Map distance to PWM value (0-255)
+    int motorSpeed;
+    
+    if (avgDistance <= 10) {
+      motorSpeed = 0;
+    }
+    else if (avgDistance >= 100) {
+      motorSpeed = 255;
+    }
+    else {
+      motorSpeed = map(avgDistance, 10, 100, 0, 255);
+    }
+    
+    // Only write to motor if speed actually changed
+    if (motorSpeed != current_motor_speed) {
+      current_motor_speed = motorSpeed;
+      analogWrite(PMW_PIN, current_motor_speed);
+    }
+    
+    last_motor_update = current_time;
   }
-  else if (avgDistance >= 100) {
-    // Far away - maximum speed
-    motorSpeed = 255;
-  }
-  else {
-    // Map distance 10-100cm to PWM 0-255
-    // Linear mapping: closer = slower, farther = faster
-    motorSpeed = map(avgDistance, 10, 100, 0, 255);
-  }
-  
-  // Apply PWM to motor
-  analogWrite(MOTOR_PIN, motorSpeed);
-  
-  Serial.print("Motor PWM: ");
-  Serial.println(motorSpeed);
+  // If not time to update yet, motor maintains its current speed automatically
 }
 
 void start_echo_measurement() {
