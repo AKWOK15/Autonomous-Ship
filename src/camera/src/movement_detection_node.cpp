@@ -24,7 +24,7 @@ public:
         this->declare_parameter<std::string>("output_dir", "/home/aidankwok/boat/data/threshold_tests/");
         this->declare_parameter<int>("max_frames", 400);
         this->declare_parameter<bool>("enable_recording", false);
-        
+        last_publish_time_ = std::chrono::steady_clock::now();
         RCLCPP_INFO(this->get_logger(), "Movement Detection Node Started");
     }
     
@@ -90,6 +90,11 @@ private:
     bool first_detection_ = true;
 	int frame_count = 0;
 	const int LEARNING_FRAMES = 50;
+
+    //timer for twist publisher
+    std::chrono::steady_clock::time_point last_publish_time_;
+    const std::chrono::milliseconds publish_interval_{1000};  // 1 second
+
 	void initialize_demo_writer() {
    		std::string filename = "/home/aidankwok/boat/data/demo_video.mp4";
             
@@ -424,7 +429,12 @@ private:
     }
 
     void publishNavigationCommand(int object_x, int image_width)
-    {
+    {   
+        auto now = std::chrono::steady_clock::now();
+        if (now - last_publish_time_ < publish_interval_) {
+            return;  // Skip this publish
+        }
+        last_publish_time_ = now;
         geometry_msgs::msg::Twist cmd_vel;
         
         if (object_x < 0)
@@ -452,7 +462,7 @@ private:
             {
                 // Turn towards object
                 cmd_vel.linear.x = 0.1;
-                cmd_vel.angular.z = object_x / 2.1333;
+                cmd_vel.angular.z = object_x / 2.91;
             }
         }
         
