@@ -13,8 +13,8 @@ Servo myservo;
 String receivedString = "";
 float angleFloat;
 boolean newData = false;
-int currentAngle = 90;
-int targetAngle = 90;
+int currentAngle = 55;
+int targetAngle = 55;
 unsigned long lastMoveTime = 0;
 const int MOVE_DELAY = 10;
 
@@ -28,7 +28,7 @@ bool ultrasonic_measuring = false;
 //Motor PMW control variables
 bool motor_enabled = false;  // Motor stays off until first message received
 unsigned long last_motor_update = 0;
-const unsigned long MOTOR_UPDATE_INTERVAL = 2000;  
+const unsigned long MOTOR_UPDATE_INTERVAL = 1000;  
 int current_motor_speed = 0;
 
 // Measurement buffer for averaging
@@ -49,7 +49,7 @@ void setup() {
     Serial.begin(9600);
     
     myservo.attach(SERVO_PIN);
-    myservo.write(90);
+    myservo.write(currentAngle);
     
     pinMode(TRIGGER_PIN, OUTPUT);
     pinMode(ECHO_PIN, INPUT);
@@ -77,7 +77,7 @@ void recvInfo() {
             if (receivedString.length() > 0) {
                 angleFloat = receivedString.toFloat();
                 
-                targetAngle = constrain((int)angleFloat, 30, 150);
+                targetAngle = constrain((int)angleFloat, 0, 110);
                 motor_enabled = true;
                 newData = true;
                 receivedString = "";  // Clear for next message
@@ -154,7 +154,7 @@ void motorSpeed(){
   }
   unsigned long current_time = millis();
   
-  // Only update motor speed every 2 seconds
+
   if (current_time - last_motor_update >= MOTOR_UPDATE_INTERVAL) {
     int avgDistance = 0;
     
@@ -176,7 +176,8 @@ void motorSpeed(){
     else {
       motorSpeed = map(avgDistance, 10, 100, 0, 255);
     }
-    
+    Serial.print("Motor Speed:");
+    Serial.println(motorSpeed);
     // Only write to motor if speed actually changed
     if (motorSpeed != current_motor_speed) {
       current_motor_speed = motorSpeed;
