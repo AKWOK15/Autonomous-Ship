@@ -1,5 +1,3 @@
-// Debug version to see exactly what Arduino receives
-
 #include <Servo.h>
 
 const int SERVO_PIN = 8;
@@ -16,7 +14,8 @@ boolean newData = false;
 int currentAngle = 55;
 int targetAngle = 55;
 unsigned long lastMoveTime = 0;
-const int MOVE_DELAY = 10;
+const int MOVE_DELAY = 15;
+
 
 // Ultrasonic measurement variables
 unsigned long echo_start_time = 0;
@@ -26,7 +25,7 @@ bool echo_timeout = false;
 bool ultrasonic_measuring = false;
 
 //Motor PMW control variables
-bool motor_enabled = false;  // Motor stays off until first message received
+bool enabled = false;  // Motor stays off until first message received
 unsigned long last_motor_update = 0;
 const unsigned long MOTOR_UPDATE_INTERVAL = 1000;  
 int current_motor_speed = 0;
@@ -78,7 +77,7 @@ void recvInfo() {
                 angleFloat = receivedString.toFloat();
                 
                 targetAngle = constrain((int)angleFloat, 0, 110);
-                motor_enabled = true;
+                enabled = true;
                 newData = true;
                 receivedString = "";  // Clear for next message
                 
@@ -148,7 +147,7 @@ void processUltrasonicMeasurement() {
 
 
 void motorSpeed(){
-  if (!motor_enabled) {
+  if (!enabled) {
     analogWrite(PMW_PIN, 0);  // Keep motor off
     return;
   }
