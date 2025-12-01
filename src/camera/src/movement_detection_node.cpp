@@ -58,21 +58,28 @@ public:
         foreground_mask_ = cv::Mat(120, 160, CV_8UC1);
         threshold_img_ = cv::Mat(120, 160, CV_8UC1);
         dilated_ = cv::Mat(120, 160, CV_8UC1);
-        
+        initialize_demo_writer();
         // Initialize video recording if enabled
         if (this->get_parameter("enable_recording").as_bool()) {
             initialize_video_writers();
         }
     }
-    
-    ~MovementDetectionNode()
+    //public can be called from anwywhere, private can only be called by other methods in same class
+    void shutdown()
     {
         release_video_writers();
+		release_demo_writer();
     }
+    // ~MovementDetectionNode()
+    // {
+    //     release_video_writers();
+	// 	release_demo_writer();
+    // }
 
 private:
     // Video recording variables
     std::map<int, cv::VideoWriter> video_writers_;
+    cv::VideoWriter demo_video_writer_;
     std::vector<int> thresholds_ = {60, 80, 100, 120, 140, 160, 180};
     int frame_count_ = 0;
     int max_frames_;
@@ -81,7 +88,33 @@ private:
     cv::Point2f smoothed_centroid_{-1, -1};
     float smoothing_factor_ = 0.3f;  // Lower = smoother but slower response (0.1-0.5)
     bool first_detection_ = true;
+	int frame_count = 0;
+	const int LEARNING_FRAMES = 50;
+	void initialize_demo_writer() {
+   		std::string filename = "/home/aidankwok/boat/data/demo_video.mp4";
+            
+            // Delete existing file if present
+    	if (std::filesystem::exists(filename)) {
+        	std::filesystem::remove(filename);
+            RCLCPP_INFO(this->get_logger(), "Deleted existing file: %s", filename.c_str());
+    	}
+            
+    	demo_video_writer_ = cv::VideoWriter(filename, cv::VideoWriter::fourcc('m', 'p', '4', 'v'),20.0, cv::Size(320, 240));
+            
+        if (demo_video_writer_.isOpened()) {
+            RCLCPP_INFO(this->get_logger(), "Initialized demo writer");
+        } else {
+                RCLCPP_ERROR(this->get_logger(), 
+                            "Failed to initialize demo writer");
+        }
+    }
     
+    void release_demo_writer() {
+        if (demo_video_writer_.isOpened()) {
+        	demo_video_writer_.release();
+            RCLCPP_INFO(this->get_logger(),"Released demo writer");
+        }
+    }    
     void initialize_video_writers() {
         output_dir_ = this->get_parameter("output_dir").as_string();
         max_frames_ = this->get_parameter("max_frames").as_int();
@@ -130,10 +163,8 @@ private:
         recording_enabled_ = false;
     }
 
-    std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(
-        const cv::Mat frame, 
-        rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_)
-    {
+    std::pair<cv::Mat, std::vector<std::vector<cv::Point>>> model(const cv::Mat frame, rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr publisher_)
+    {   
         auto start_time = std::chrono::high_resolution_clock::now();
         cv::Mat resized_image;
         cv::resize(frame, resized_image, cv::Size(320, 240));
@@ -141,7 +172,10 @@ private:
         
         // Apply background subtraction
         new_bg_subtractor->apply(resized_image, foreground_mask, -1);
-        
+        if (frame_count < LEARNING_FRAMES){
+			frame_count++;
+			return {resized_image, std::vector<std::vector<cv::Point>>()};
+		}
         // If recording is enabled, process and save each threshold
         if (recording_enabled_ && frame_count_ < max_frames_) {
             for (int threshold_value : thresholds_) {
@@ -314,7 +348,7 @@ private:
     }
 
     void imageCallback(const sensor_msgs::msg::Image::ConstSharedPtr& msg)
-    {
+    { 
         try
         {
             // Convert ROS image to OpenCV
@@ -328,6 +362,7 @@ private:
             double min_area = 50;
             cv::Point centroid(-1, -1);
             int largest_contour_index = -1;
+            
             for (size_t i = 0; i < contours.size(); i++)
             {
                 double area = cv::contourArea(contours[i]);
@@ -376,6 +411,10 @@ private:
                 image_publisher_.publish(processed_msg);
                 publishNavigationCommand(centroid.x, resized_image.cols);
 
+            }
+            if (demo_video_writer_.isOpened()){
+                // RCLCPP_INFO(this->get_logger(), "Writing to demo video writer");
+                demo_video_writer_.write(resized_image);
             }
         }
         catch (cv_bridge::Exception& e)
@@ -443,11 +482,15 @@ int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<MovementDetectionNode>();
-    
     // Initialize the node after it's managed by shared_ptr
     node->initialize();
     
     rclcpp::spin(node);
+    RCLCPP_INFO(node->get_logger(), "Shutting down...");
+    node->shutdown();  // Your cleanup method
+    
+    node.reset();  // Now destroy the node
+    
     rclcpp::shutdown();
     return 0;
 }
