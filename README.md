@@ -1,7 +1,7 @@
 # Autonomous-Ship
 
 ### Description
-This past spring, I attended Special Operations Forces (SOF) Week, where I watched an autonomous ship zip around a lake. Immediately, I thought, that's what I want to do. At the time, I had no hardware experience. Consequently, this project was a way for me to dive off the deep end and learn hardware and the fundamentals of a robot: computer vision, controls, sensor routing, and sensor fusion.
+This past spring, I attended Special Operations Forces (SOF) Week, where I watched an autonomous ship zip around a lake. Immediately, I thought, that's what I want to do. But at the time, I had no hardware experience. Consequently, this project was a way for me to dive off the deep end and learn hardware and the fundamentals of a robot: computer vision, controls, sensor routing, and sensor fusion.
 
 ### Goal - Intercept algorithm
 The boat finds the biggest moving object and tries to intercept it. The greater the distance between it and the tracked object, the faster the boat will travel. If the object goes left, then the boat goes left. Same for the right. 
