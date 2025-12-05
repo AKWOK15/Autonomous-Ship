@@ -1,4 +1,4 @@
-# Autonomous-Ship
+# Autonomous-Boat
 
 ### Description
 This past spring, I attended Special Operations Forces (SOF) Week, where I watched an autonomous ship zip around a lake. Immediately, I thought, that's what I want to do. But at the time, I had no hardware experience. Consequently, this project was a way for me to dive off the deep end and learn hardware and the fundamentals of a robot: computer vision, controls, sensor routing, and sensor fusion.
