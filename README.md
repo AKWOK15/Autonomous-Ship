@@ -1,24 +1,26 @@
 # Autonomous-Ship
 
 ### Description
-Up until this point, I've only experimented with web development and wasn't too high on it. At the same, I've been constantly reading about the Russo-Ukranian War, the Gaza War, and China's build up. This motivated me to get into defense tech and since I'm especially interested in autonomous systems, I wanted this project to be an opportunity to learn the fundamentals of a robot: ROS2, computer vision, sensor fusion, and CAD. This project will never be fully done because I will add more and more autonomous functionality to the boat. 
+This past spring, I attended Special Operations Forces (SOF) Week, where I watched an autonomous ship zip around a lake. Immediately, I thought, that's what I want to do. At the time, I had no hardware experience. Consequently, this project was a way for me to dive off the deep end and learn hardware and the fundamentals of a robot: computer vision, controls, sensor routing, and sensor fusion.
 
-### Goal
-Intercept algorithm. The greater the distance between it and the tracked object, the faster it will travel. If the object goes left, then the boat goes left. Same for the right. 
+### Goal - Intercept algorithm
+The boat finds the biggest moving object and tries to intercept it. The greater the distance between it and the tracked object, the faster the boat will travel. If the object goes left, then the boat goes left. Same for the right. 
+
 
 ### Demo
-
-
 https://github.com/user-attachments/assets/e6fce736-122a-4a18-9390-2b3bc0ab2645
 
+Scene 1: Proving the boat moves\
+2. Propeller RPM changes based on distance to object (me)\
+3. Rudder tracks object\
+4. The boat should have intercepted me. Instead, the pool's ripples threw off its direction. Some combination of my hull shape, 3-6 volt DC motor, and propeller is at fault for being so susceptible to tiny ripples. (I'm hypothesizing that this is mostly a motor problem). 
 
+### System Design
+<img width="930" height="1079" alt="Boat Diagram" src="https://github.com/user-attachments/assets/1779fcef-040b-46ca-a9b7-2517a5d5f5d7" />
 
-
-
-### Accomplished Steps
-1. Built boat in Autodesk Fusion.
-2. Tried to detect objects by color. But, I quickly realized that this approach relied too much on lighting. Based on my goal, I then realized I needed to focus more on detecting object movement rather than object identificaiton. 
-3. Used MOG2 background subtraction to detect object movement and linked it to servo motor. Servo motor recieves angular.z (yaw) from MOG2 to turn rudder to left/right to follow object.<br/>
-4. Initially, the pi controlled both the ultrasonic sensor and the camera. However, the camera hogged the CPU causing sensor echos to be missed.
-5. Moved the sensor to the Arduino. I still had to sync the sensor with the servo motor, but the Arduino made it much easier to control clock cycles.
-6. Implemented ultrasonic sensor to change motor RPM based on distance from tracked object.
+### Next Steps
+1. Source a more powerful motor and Raspberry Pi battery pack.\
+   a. Ensure my motor is powerful enough to overcome pool ripples. 
+3. Waterproof the boat. I initially used a silicon sealant, but it created too much friction with my motor shaft. So, I then used grease, but water seeped in as soon as the motor shaft rotated. 
+4. Refine the computer vision to ensure the rudder can more accurately track the biggest moving object.
+5. Right now, propeller speed depends solely on the ultrasonic sensor. So if I make a sharp turn, the ultrasonic sensor won't detect me, and the propeller will stop. Trajectory estimation might be able to fix this?
